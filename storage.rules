@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Product images - public read, admin write
+    match /products/{imageId} {
+      allow read: if true;
+      allow write: if request.auth != null 
+        && request.auth.token.email == 'admin@aira3d.com';
+    }
+
+    // Gallery images - public read, admin write
+    match /gallery/{imageId} {
+      allow read: if true;
+      allow write: if request.auth != null 
+        && request.auth.token.email == 'admin@aira3d.com';
+    }
+
+    // Custom order uploads - owner can read, admin can write
+    match /custom-orders/{fileId} {
+      allow read: if request.auth != null 
+        && (request.auth.token.email == 'admin@aira3d.com' 
+            || fileId.matches('.*_' + request.auth.token.email.replace('.', '_') + '.*'));
+      allow write: if request.auth != null;
+    }
+
+    // Block all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
