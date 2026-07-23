@@ -4,19 +4,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { doc, getDoc, collection, getDocs, query, where, db } from "../firebase/index.js";
 import { useCart } from "../context/CartContext.jsx";
 import { formatPrice } from "../utils/formatHelpers.js";
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 }
-  }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 }
-};
+import toast from "react-hot-toast";
+import Button from "../components/ui/Button.jsx";
+import Badge from "../components/ui/Badge.jsx";
+import { 
+  ShoppingBagIcon, 
+  ArrowLeftIcon, 
+  TruckIcon, 
+  ShieldCheckIcon, 
+  ArrowPathIcon,
+  MinusIcon,
+  PlusIcon
+} from "@heroicons/react/24/outline";
 
 export default function ProductPage() {
   const { id } = useParams();
@@ -35,6 +34,8 @@ export default function ProductPage() {
 
   useEffect(() => {
     const fetchProduct = async () => {
+      window.scrollTo(0, 0);
+      setLoading(true);
       try {
         const docRef = doc(db, "products", id);
         const docSnap = await getDoc(docRef);
@@ -45,6 +46,9 @@ export default function ProductPage() {
           if (data.colors && data.colors.length > 0) {
             setSelectedColor(data.colors[0]);
           }
+        } else {
+          toast.error("Product not found");
+          navigate('/shop');
         }
       } catch (err) {
         console.error("Error fetching product:", err);
@@ -54,7 +58,7 @@ export default function ProductPage() {
     };
 
     fetchProduct();
-  }, [id]);
+  }, [id, navigate]);
 
   useEffect(() => {
     const fetchRelated = async () => {
@@ -80,285 +84,346 @@ export default function ProductPage() {
     return product.customizationType && product.customizationType !== 'none';
   };
 
-  const getCustomizationType = () => {
-    return product?.customizationType || 'none';
-  };
-
   const validateCustomData = () => {
     const errors = {};
-    const ct = getCustomizationType();
+    const ct = product?.customizationType || 'none';
     if (ct === 'name' && !customData.name?.trim()) {
       errors.name = "Please enter the name to print";
     }
     if (ct === 'license' && !customData.licenseNumber?.trim()) {
-      errors.licenseNumber = "Please enter your license plate number (e.g. MH 12 DS 3454)";
+      errors.licenseNumber = "Please enter your license plate number";
     }
     setCustomErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleBuyNow = () => {
+  const handleAction = (isBuyNow) => {
     if (!product) return;
     if (needsCustomization()) {
       setCustomPrice(product.customizationPrice || product.customPrice || 0);
-      setShowCustomModal(true);
+      setShowCustomModal({ isOpen: true, isBuyNow });
       return;
     }
-    proceedToCheckout({});
+    if (isBuyNow) {
+      proceedToCheckout({});
+    } else {
+      performAddToCart({});
+    }
   };
 
-  const proceedToCheckout = (customData) => {
-    if (!product) return;
+  const performAddToCart = (finalCustomData) => {
     addToCart({
       id: product.id,
       name: product.name,
       price: product.price,
       imageUrl: product.imageUrl,
       quantity,
-      customData,
+      customData: { ...finalCustomData, ...(selectedColor && { color: selectedColor }) },
+      customPrice: customPrice || 0,
+    });
+    toast.success(`${product.name} added to cart`);
+    setShowCustomModal(false);
+  };
+
+  const proceedToCheckout = (finalCustomData) => {
+    addToCart({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      quantity,
+      customData: { ...finalCustomData, ...(selectedColor && { color: selectedColor }) },
       customPrice: customPrice || 0,
     });
     setShowCustomModal(false);
-    setCustomPrice(0);
     navigate("/checkout");
   };
 
   const handleCustomSubmit = () => {
     if (!validateCustomData()) return;
-    proceedToCheckout(customData);
-  };
-
-  const handleQuantityChange = (newQty) => {
-    setQuantity(Math.max(1, newQty));
-  };
-
-  const handleAddToCart = () => {
-    if (!product) return;
-    addToCart({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      imageUrl: product.imageUrl,
-      quantity,
-      customData: {},
-      customPrice: 0,
-    });
+    if (showCustomModal.isBuyNow) {
+      proceedToCheckout(customData);
+    } else {
+      performAddToCart(customData);
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-600 border-t-transparent"></div>
-          <p className="text-gray-600 dark:text-gray-800 text-sm">Loading product...</p>
+      <div className="min-h-screen bg-white pt-24 pb-20 px-4">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-12">
+          <div className="flex-1 animate-pulse bg-gray-100 rounded-[2rem] aspect-square"></div>
+          <div className="flex-1 space-y-6">
+            <div className="h-4 bg-gray-100 w-1/4 rounded"></div>
+            <div className="h-10 bg-gray-100 w-3/4 rounded"></div>
+            <div className="h-8 bg-gray-100 w-1/3 rounded"></div>
+            <div className="h-40 bg-gray-100 w-full rounded"></div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!product) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-50 px-4">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
-          <div className="text-8xl mb-4">🔍</div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-900 mb-4">Product Not Found</h1>
-          <p className="text-gray-600 dark:text-gray-800 mb-8">The product you're looking for doesn't exist or has been removed.</p>
-          <Link to="/shop" className="inline-block px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors font-medium">Back to Shop</Link>
-        </motion.div>
-      </div>
-    );
-  }
-
-const cat = product.category || "";
-   const ct = getCustomizationType();
-   const isNamePlate = ct === 'name';
-   const isLicensePlate = ct === 'license';
-   const isPhotoFrame = ct === 'photo';
+  if (!product) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-50 scroll-smooth">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <motion.div variants={itemVariants} className="relative">
-            <div className="aspect-square rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-orange-100 via-pink-50 to-indigo-100 dark:from-orange-900/30 dark:via-pink-900/20 dark:to-indigo-900/30">
+    <div className="min-h-screen bg-white pt-24 pb-32 lg:pb-20 relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* Breadcrumb / Back */}
+        <button onClick={() => navigate(-1)} className="mb-8 flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
+          <ArrowLeftIcon className="w-4 h-4 mr-2" /> Back to Shop
+        </button>
+
+        <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
+          
+          {/* Image Gallery - Sticky on Desktop */}
+          <div className="lg:w-1/2 relative lg:sticky lg:top-24 h-fit">
+            <div className="aspect-square bg-gray-50 rounded-[2rem] overflow-hidden border border-gray-100 shadow-sm relative group cursor-zoom-in">
               {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-125"
+                />
               ) : (
-                <div className="w-full h-full flex items-center justify-center"><span className="text-9xl opacity-50">🪄</span></div>
+                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                  <ShoppingBagIcon className="w-24 h-24" />
+                </div>
+              )}
+              {product.stock === 0 && (
+                <div className="absolute top-4 left-4">
+                  <Badge variant="danger" size="lg" className="shadow-lg backdrop-blur-md bg-white/90">Out of Stock</Badge>
+                </div>
               )}
             </div>
-            {product.featured && (
-              <span className="absolute top-4 left-4 bg-yellow-400 text-gray-900 px-3 py-1 rounded-full text-xs font-bold shadow-lg">FEATURED</span>
-            )}
-          </motion.div>
+            
+            {/* Trust Indicators below image */}
+            <div className="grid grid-cols-3 gap-4 mt-8 border-t border-gray-100 pt-8">
+               <div className="text-center">
+                 <TruckIcon className="w-6 h-6 mx-auto mb-2 text-primary-600" />
+                 <span className="text-xs font-semibold text-gray-900 block">Pan-India Delivery</span>
+                 <span className="text-[11px] text-gray-500">Fast & secure</span>
+               </div>
+               <div className="text-center border-l border-r border-gray-100 px-2">
+                 <ShieldCheckIcon className="w-6 h-6 mx-auto mb-2 text-primary-600" />
+                 <span className="text-xs font-semibold text-gray-900 block">Premium Quality</span>
+                 <span className="text-[11px] text-gray-500">Finest materials</span>
+               </div>
+               <div className="text-center">
+                 <ArrowPathIcon className="w-6 h-6 mx-auto mb-2 text-primary-600" />
+                 <span className="text-xs font-semibold text-gray-900 block">Replacement</span>
+                 <span className="text-[11px] text-gray-500">If damaged</span>
+               </div>
+            </div>
+          </div>
 
-          <motion.div variants={itemVariants} className="flex flex-col gap-6">
-            <div>
-              <span className="inline-block px-3 py-1 bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 rounded-full text-xs font-semibold mb-4">{cat || "Uncategorized"}</span>
-              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-900 leading-tight">{product.name}</h1>
+          {/* Product Details */}
+          <div className="lg:w-1/2">
+            <Badge variant="primary" className="mb-4">{product.category || 'General'}</Badge>
+            <h1 className="text-4xl md:text-5xl font-display font-bold text-gray-900 mb-4 leading-tight">
+              {product.name}
+            </h1>
+            
+            <div className="text-3xl font-display font-bold text-gray-900 mb-6 flex items-baseline gap-2">
+              {formatPrice(product.price)}
+              <span className="text-sm font-medium text-gray-500 font-sans tracking-wide uppercase">MRP (Incl. taxes)</span>
             </div>
 
-            <div className="text-4xl font-bold text-orange-600">
-              {formatPrice(product.price * quantity)}
-              {quantity > 1 && <span className="text-lg text-gray-500 ml-2">(₹{product.price} × {quantity})</span>}
-            </div>
+            <p className="text-gray-600 text-lg leading-relaxed mb-8">
+              {product.description || "Premium 3D printed product crafted with precision engineering."}
+            </p>
 
-            <p className="text-gray-600 dark:text-gray-800 leading-relaxed">{product.description || "Premium 3D printed product crafted with precision."}</p>
-
-            <div className="flex flex-wrap gap-4">
-              <div className="bg-white dark:bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-200">
-                <span className="text-xs text-gray-400 dark:text-gray-800 uppercase tracking-wider">Material</span>
-                <p className="font-semibold text-gray-900 dark:text-gray-900 mt-1">{product.material || "PLA"}</p>
-              </div>
-              <div className="bg-white dark:bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-200">
-                <span className="text-xs text-gray-400 dark:text-gray-800 uppercase tracking-wider">Size</span>
-                <p className="font-semibold text-gray-900 dark:text-gray-900 mt-1">{product.size || "Standard"}</p>
-              </div>
-            </div>
-
-            {product.colors && product.colors.length > 0 && (
-              <div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-900 mb-2 block">Color: <span className="font-bold text-gray-900 dark:text-gray-900">{selectedColor}</span></span>
-                <div className="flex flex-wrap gap-3">
-                  {product.colors.map((color) => (
-                    <button key={color} onClick={() => setSelectedColor(color)} className={`w-10 h-10 rounded-full border-2 transition-all duration-200 ${selectedColor === color ? "border-orange-600 ring-2 ring-orange-200 scale-110" : "border-transparent hover:scale-110"}`} style={{ backgroundColor: color }} aria-label={color} />
-                  ))}
+            <div className="space-y-8 py-8 border-y border-gray-100 mb-8">
+              
+              {/* Dimensions & Specs */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-2">Dimensions</h4>
+                  <p className="text-gray-600">{product.dimensions || "Standard size"}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-2">Material</h4>
+                  <p className="text-gray-600">{product.material || "Premium PLA/Resin"}</p>
                 </div>
               </div>
-            )}
 
-            <div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-900 mb-2 block">Quantity</span>
-              <div className="inline-flex items-center border border-gray-200 dark:border-gray-200 rounded-xl overflow-hidden bg-white dark:bg-gray-50">
-                <button onClick={() => handleQuantityChange(quantity - 1)} className="px-4 py-3 text-gray-600 hover:bg-gray-100 transition-colors font-bold disabled:opacity-30" disabled={quantity <= 1}>−</button>
-                <span className="px-6 py-3 font-semibold text-gray-900 min-w-[3rem] text-center">{quantity}</span>
-                <button onClick={() => handleQuantityChange(quantity + 1)} className="px-4 py-3 text-gray-600 hover:bg-gray-100 transition-colors font-bold">+</button>
+              {/* Color Selection */}
+              {product.colors && product.colors.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Color Options</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {product.colors.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
+                          selectedColor === color
+                            ? "border-primary-500 bg-primary-50 text-primary-700 shadow-sm"
+                            : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        {color}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quantity */}
+              <div>
+                <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Quantity</h4>
+                <div className="flex items-center w-fit border border-gray-200 rounded-xl bg-gray-50">
+                  <button 
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="p-3 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-l-xl transition-colors"
+                  >
+                    <MinusIcon className="w-5 h-5" />
+                  </button>
+                  <span className="w-16 text-center font-bold text-gray-900">{quantity}</span>
+                  <button 
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="p-3 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-r-xl transition-colors"
+                  >
+                    <PlusIcon className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-4 mt-2">
-              <button 
-                onClick={handleAddToCart} 
+            {/* Desktop Actions */}
+            <div className="hidden lg:flex gap-4">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="flex-1"
                 disabled={product.stock === 0}
-                className="flex-1 py-4 border-2 border-orange-600 text-orange-600 rounded-xl hover:bg-orange-50 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => handleAction(false)}
               >
                 Add to Cart
-              </button>
-              <button 
-                onClick={handleBuyNow} 
+              </Button>
+              <Button 
+                size="lg" 
+                className="flex-1 shadow-lg shadow-primary-500/30"
                 disabled={product.stock === 0}
-                className="flex-1 py-4 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => handleAction(true)}
               >
                 {product.stock === 0 ? 'Out of Stock' : 'Buy Now'}
-              </button>
+              </Button>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
 
+        {/* Mobile Sticky Action Bar */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 flex gap-3">
+            <Button 
+              variant="outline" 
+              className="flex-1 bg-white"
+              disabled={product.stock === 0}
+              onClick={() => handleAction(false)}
+            >
+              Add to Cart
+            </Button>
+            <Button 
+              className="flex-1 shadow-lg shadow-primary-500/30"
+              disabled={product.stock === 0}
+              onClick={() => handleAction(true)}
+            >
+              {product.stock === 0 ? 'Out of Stock' : 'Buy Now'}
+            </Button>
+        </div>
+
+        {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <motion.section initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="mt-24">
-            <div className="flex items-center justify-between mb-10">
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-900">Related Products</h2>
-              <Link to="/shop" className="text-orange-600 hover:text-orange-700 font-medium text-sm">View All →</Link>
-            </div>
+          <div className="mt-32 border-t border-gray-100 pt-16">
+            <h2 className="text-3xl font-display font-bold text-gray-900 mb-8 text-center">You Might Also Like</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((relProduct) => (
-                <motion.div key={relProduct.id} whileHover={{ y: -8 }} transition={{ type: "spring", stiffness: 300 }}>
-                  <Link to={`/product/${relProduct.id}`} className="block bg-white dark:bg-gray-50 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow border border-gray-100 dark:border-gray-200">
-                    <div className="aspect-square bg-gradient-to-br from-orange-50 to-orange-50 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
-                      {relProduct.imageUrl ? <img src={relProduct.imageUrl} alt={relProduct.name} className="w-full h-full object-cover" /> : <span className="text-6xl opacity-50">📦</span>}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-900 truncate">{relProduct.name}</h3>
-                      <p className="text-orange-600 dark:text-orange-400 font-bold mt-1">{formatPrice(relProduct.price)}</p>
-                    </div>
-                  </Link>
-                </motion.div>
+              {relatedProducts.map((p) => (
+                <Link to={`/product/${p.id}`} key={p.id} className="group flex flex-col bg-white rounded-3xl border border-gray-100 p-4 hover:shadow-xl hover:shadow-gray-200/50 hover:border-gray-200 transition-all">
+                  <div className="aspect-square bg-gray-50 rounded-2xl mb-4 overflow-hidden relative">
+                    {p.imageUrl ? (
+                      <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300">
+                        <ShoppingBagIcon className="w-10 h-10" />
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-gray-900 line-clamp-2 mb-2 group-hover:text-primary-600 transition-colors">{p.name}</h3>
+                  <p className="font-bold text-gray-900 mt-auto">{formatPrice(p.price)}</p>
+                </Link>
               ))}
             </div>
-          </motion.section>
+          </div>
         )}
       </div>
 
       {/* Customization Modal */}
       <AnimatePresence>
         {showCustomModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCustomModal(false)}>
-            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white dark:bg-gray-50 rounded-2xl shadow-2xl p-6 md:p-8 w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {isNamePlate ? "🏷️ Enter Name for Name Plate" : isLicensePlate ? "🚗 Enter License Plate Number" : "🖼️ Share Your Photo"}
-                </h2>
-                <button onClick={() => setShowCustomModal(false)} className="text-gray-400 hover:text-gray-900 text-2xl">✕</button>
-              </div>
-
-              <p className="text-sm text-gray-500 mb-6">
-                {isNamePlate && "Enter the name you want printed on your name plate."}
-                {isLicensePlate && "Enter your vehicle registration number (e.g. MH 12 DS 3454)."}
-                {isPhotoFrame && "Share your photo for the frame. Use either option below."}
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCustomModal(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-3xl p-8 z-50 shadow-2xl"
+            >
+              <h3 className="text-2xl font-display font-bold text-gray-900 mb-2">
+                Customize Your Order
+              </h3>
+              <p className="text-gray-500 mb-6">
+                Personalization charge: <span className="font-bold text-primary-600">+{formatPrice(customPrice)}</span>
               </p>
 
-{isNamePlate && (
-                <div className="space-y-4">
+              <div className="space-y-4 mb-8">
+                {product.customizationType === 'name' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Name to Print *</label>
-                    <input type="text" value={customData.name || ""} onChange={(e) => setCustomData({...customData, name: e.target.value})} placeholder="Enter name to print" className={`w-full px-4 py-3 rounded-lg border ${customErrors.name ? "border-red-500" : "border-gray-300"} bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 outline-none`} />
-                    {customErrors.name && <p className="mt-1 text-sm text-red-500">{customErrors.name}</p>}
+                    <label className="block text-sm font-bold text-gray-900 mb-1.5 uppercase tracking-wider">Name to Print *</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                      placeholder="e.g. Ramesh"
+                      value={customData.name || ''}
+                      onChange={(e) => {
+                        setCustomData({ ...customData, name: e.target.value });
+                        if (customErrors.name) setCustomErrors({ ...customErrors, name: null });
+                      }}
+                    />
+                    {customErrors.name && <p className="text-red-500 text-sm mt-1.5">{customErrors.name}</p>}
                   </div>
-                </div>
-              )}
+                )}
+                
+                {product.customizationType === 'license' && (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-900 mb-1.5 uppercase tracking-wider">License Plate Number *</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all uppercase"
+                      placeholder="e.g. MH 12 DS 3454"
+                      value={customData.licenseNumber || ''}
+                      onChange={(e) => {
+                        setCustomData({ ...customData, licenseNumber: e.target.value.toUpperCase() });
+                        if (customErrors.licenseNumber) setCustomErrors({ ...customErrors, licenseNumber: null });
+                      }}
+                    />
+                    {customErrors.licenseNumber && <p className="text-red-500 text-sm mt-1.5">{customErrors.licenseNumber}</p>}
+                  </div>
+                )}
+              </div>
 
-              {isLicensePlate && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">License Plate Number *</label>
-                    <input type="text" value={customData.licenseNumber || ""} onChange={(e) => setCustomData({...customData, licenseNumber: e.target.value.toUpperCase()})} placeholder="MH 12 DS 3454" className={`w-full px-4 py-3 rounded-lg border ${customErrors.licenseNumber ? "border-red-500" : "border-gray-300"} bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 outline-none font-mono tracking-wider`} />
-                    {customErrors.licenseNumber && <p className="mt-1 text-sm text-red-500">{customErrors.licenseNumber}</p>}
-                    <p className="mt-1 text-xs text-gray-400">Format: MH 12 DS 3454 (State Code + RTO + Series + Number)</p>
-                  </div>
-                </div>
-              )}
-
-{isPhotoFrame && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Option 1: Google Drive Photo Link</label>
-                    <input type="url" value={customData.photoLink || ""} onChange={(e) => setCustomData({...customData, photoLink: e.target.value})} placeholder="https://drive.google.com/file/d/..." className={`w-full px-4 py-3 rounded-lg border ${customErrors.photoLink ? "border-red-500" : "border-gray-300"} bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 outline-none`} />
-                    <p className="mt-1 text-xs text-gray-400">Upload photo to Google Drive, set to "Anyone with link can view", paste link here.</p>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-                    <div className="relative flex justify-center text-xs"><span className="px-2 bg-white text-gray-400">OR</span></div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Option 2: Send Photo on WhatsApp</label>
-                    <p className="text-sm text-gray-500 mb-3">Send your photo directly to our WhatsApp after placing the order. We'll contact you within 24 hours.</p>
-                    <a href="https://wa.me/919876543210?text=Hi%20Aira3D!%20I%20want%20to%20order%20a%20photo%20frame.%20Product:%20" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium">
-                      💬 Open WhatsApp to Send Photo
-                    </a>
-                  </div>
-                </div>
-              )}
-
-               <div className="mt-6 pt-4 border-t border-gray-200">
-                 <div className="flex items-center justify-between mb-4">
-                   <div>
-                     <div className="flex items-baseline gap-2">
-                       <p className="text-sm text-gray-500">Product</p>
-                       <p className="font-medium text-gray-900">{formatPrice(product.price)}</p>
-                       {customPrice > 0 && <span className="text-xs text-orange-600">+ {formatPrice(customPrice)} customization</span>}
-                     </div>
-                     <p className="text-xs text-gray-400 mt-0.5">Total ({quantity} × {formatPrice(product.price + customPrice)})</p>
-                     <p className="text-2xl font-bold text-orange-600">{formatPrice((product.price + customPrice) * quantity)}</p>
-                   </div>
-                 </div>
-                <div className="flex gap-3">
-                  <button onClick={() => setShowCustomModal(false)} className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium">Cancel</button>
-                  <button onClick={handleCustomSubmit} className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium">Continue to Checkout</button>
-                </div>
+              <div className="flex gap-3">
+                <Button variant="secondary" className="flex-1" onClick={() => setShowCustomModal(false)}>Cancel</Button>
+                <Button className="flex-1" onClick={handleCustomSubmit}>Confirm</Button>
               </div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

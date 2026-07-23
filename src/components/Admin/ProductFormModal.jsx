@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { storage, ref, uploadBytes, getDownloadURL } from '../../firebase';
+import { toast } from 'react-hot-toast';
 
 export default function ProductFormModal({ product, categories, onClose, onSubmit }) {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+  
   const [form, setForm] = useState({
     name: '',
     category: categories[0] || '',
@@ -55,6 +60,37 @@ export default function ProductFormModal({ product, categories, onClose, onSubmi
       height: parseFloat(form.height) || 0,
       stock: parseInt(form.stock, 10) || 0
     });
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload a valid image file.');
+      return;
+    }
+
+    setUploading(true);
+    const toastId = toast.loading('Uploading image...');
+
+    try {
+      const timestamp = Date.now();
+      const filename = `${timestamp}_${file.name.replace(/\s+/g, '_')}`;
+      const storageRef = ref(storage, `products/${filename}`);
+      
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      setForm(prev => ({ ...prev, imageUrl: downloadURL }));
+      toast.success('Image uploaded successfully!', { id: toastId });
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      toast.error('Failed to upload image. Please try again.', { id: toastId });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -133,14 +169,53 @@ export default function ProductFormModal({ product, categories, onClose, onSubmi
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL <span className="text-gray-400">(Optional)</span></label>
-                <input
-                  type="url"
-                  value={form.imageUrl}
-                  onChange={(e) => handleInputChange('imageUrl', e.target.value)}
-                  placeholder="https://..."
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                  <div className="flex-1 w-full">
+                    <input
+                      type="url"
+                      value={form.imageUrl}
+                      onChange={(e) => handleInputChange('imageUrl', e.target.value)}
+                      placeholder="Paste image URL here..."
+                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none"
+                    />
+                  </div>
+                  <div className="text-gray-400 font-medium">OR</div>
+                  <div className="flex-1 w-full relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={fileInputRef}
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      disabled={uploading}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {uploading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-slate-400 border-t-slate-700 rounded-full animate-spin"></div>
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                          </svg>
+                          Upload File
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                {form.imageUrl && (
+                  <div className="mt-3 relative w-24 h-24 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
+                    <img src={form.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
               </div>
             </div>
           </div>

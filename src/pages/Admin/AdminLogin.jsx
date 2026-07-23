@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { ADMIN_EMAIL } from '../../utils/constants.js';
-import { signInWithEmailAndPassword, getAuth } from '../../firebase/index.js';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, getAuth, fetchSignInMethodsForEmail } from '../../firebase/index.js';
 import toast from 'react-hot-toast';
 
 const HARDCODED_ADMIN = { email: 'kraut9011@gmail.com', password: 'Shri@123' };
@@ -35,8 +35,16 @@ export default function AdminLogin() {
           await signInWithEmailAndPassword(auth, email, password);
           toast.success('Login successful! Redirecting...');
         } catch (err) {
-          toast.success('Session active! Redirecting...');
-          console.log('Firebase auth note:', err.code, err.message);
+          if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+             try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                toast.success('Admin account created and logged in!');
+             } catch (createErr) {
+                console.error("Error creating admin account:", createErr);
+             }
+          } else {
+             toast.success('Session active! Redirecting...');
+          }
         }
         setTimeout(() => navigate('/admin/dashboard'), 600);
       } else {

@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, db, query, orderBy, where } from '../../firebase/index.js';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, where } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { AnimatePresence, motion } from 'framer-motion';
 import ProductsTable from '../../components/Admin/ProductsTable';
 import ProductFormModal from '../../components/Admin/ProductFormModal';
 import CategoryManagerModal from '../../components/Admin/CategoryManagerModal';
+import { PlusIcon, TagIcon, TrashIcon } from '@heroicons/react/24/outline';
+import Button from '../../components/ui/Button';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -119,29 +122,33 @@ export default function AdminProducts() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-900">Products Management</h1>
-        <div className="flex gap-2">
-          <button
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-gray-900">Products Management</h1>
+          <p className="text-gray-500 mt-1">Manage your catalog, add new products, and organize categories.</p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="secondary"
             onClick={() => setShowCatModal(true)}
-            className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
           >
-            🏷️ Manage Categories
-          </button>
-          <button
+            <TagIcon className="w-4 h-4 mr-2" />
+            Categories
+          </Button>
+          <Button
             onClick={openAddModal}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium shadow-sm shadow-orange-500/20"
           >
-            + Add Product
-          </button>
+            <PlusIcon className="w-4 h-4 mr-2" />
+            Add Product
+          </Button>
         </div>
       </div>
 
@@ -179,24 +186,27 @@ export default function AdminProducts() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
           >
             <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              className="bg-white dark:bg-gray-50 rounded-xl shadow-2xl p-6 w-full max-w-sm"
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm text-center"
             >
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-900 mb-2">Confirm Delete</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-800 mb-6">Are you sure you want to delete this product? This action cannot be undone.</p>
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                 <TrashIcon className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-display font-bold text-gray-900 mb-2">Delete Product?</h3>
+              <p className="text-sm text-gray-500 mb-8">This action cannot be undone. This will permanently remove the product from the database.</p>
+              
               <div className="flex gap-3">
-                <button
-                  onClick={() => handleDeleteProduct(deleteConfirm)}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >Delete</button>
-                <button
-                  onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300"
-                >Cancel</button>
+                <Button variant="secondary" onClick={() => setDeleteConfirm(null)} className="flex-1 justify-center">
+                  Cancel
+                </Button>
+                <Button onClick={() => handleDeleteProduct(deleteConfirm)} className="flex-1 justify-center bg-red-600 hover:bg-red-700 text-white shadow-red-500/20">
+                  Delete
+                </Button>
               </div>
             </motion.div>
           </motion.div>

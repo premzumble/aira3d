@@ -8,7 +8,6 @@ import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
-  fetchSignInMethodsForEmail,
   getAuth,
 } from "../firebase/index.js";
 import { collection, addDoc, serverTimestamp, db } from "../firebase/index.js";
@@ -54,13 +53,6 @@ export default function Auth() {
     setSuccess("");
     setLoading(true);
     try {
-      const methods = await fetchSignInMethodsForEmail(auth, loginData.email);
-      if (methods.length === 0) {
-        const message = "No account found with this email. Please register first.";
-        setError(message);
-        setLoading(false);
-        return;
-      }
       await signInWithEmailAndPassword(auth, loginData.email, loginData.password);
       setSuccess("Login successful! Welcome back.");
       setTimeout(() => navigate(from), 1500);

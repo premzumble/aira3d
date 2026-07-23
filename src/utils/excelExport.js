@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { formatPrice, formatDate } from './formatHelpers.js';
+import { formatDate } from './formatHelpers.js';
 
 export function exportOrdersToExcel(orders) {
   if (!orders || orders.length === 0) return;

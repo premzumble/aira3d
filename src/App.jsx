@@ -1,66 +1,96 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import AdminLogin from './pages/Admin/AdminLogin';
-import AdminLayout from './pages/Admin/AdminLayout';
-import AdminDashboard from './pages/Admin/AdminDashboard';
-import AdminOrders from './pages/Admin/AdminOrders';
-import AdminCustomOrders from './pages/Admin/AdminCustomOrders';
-import AdminProducts from './pages/Admin/AdminProducts';
-import AdminGallery from './pages/Admin/AdminGallery';
-import AdminCustomers from './pages/Admin/AdminCustomers';
-import AdminContact from './pages/Admin/AdminContact';
-import Home from './pages/Home';
-import Shop from './pages/Shop';
-import ProductPage from './pages/ProductPage';
-import Gallery from './pages/Gallery';
-import CustomOrder from './pages/CustomOrder';
-import Checkout from './pages/Checkout';
-import About from './pages/About';
-import Contact from './pages/Contact';
-import Auth from './pages/Auth';
-import Profile from './pages/Profile';
-import OrderConfirmation from './pages/OrderConfirmation';
-import Workshop from './pages/Workshop';
-import WorkshopRegistration from './pages/WorkshopRegistration';
+
+// Lazy load pages for performance optimization
+const Home = lazy(() => import('./pages/Home'));
+const Shop = lazy(() => import('./pages/Shop'));
+const ProductPage = lazy(() => import('./pages/ProductPage'));
+const Gallery = lazy(() => import('./pages/Gallery'));
+const CustomOrder = lazy(() => import('./pages/CustomOrder'));
+const Cart = lazy(() => import('./pages/Cart'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const About = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/Contact'));
+const Auth = lazy(() => import('./pages/Auth'));
+const Profile = lazy(() => import('./pages/Profile'));
+const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
+const Workshop = lazy(() => import('./pages/Workshop'));
+const WorkshopRegistration = lazy(() => import('./pages/WorkshopRegistration'));
+
+// Lazy load course pages
+const Courses = lazy(() => import('./pages/Courses'));
+const CourseDetails = lazy(() => import('./pages/CourseDetails'));
+const CourseEnrollment = lazy(() => import('./pages/CourseEnrollment'));
+
+// Lazy load admin pages
+const AdminLogin = lazy(() => import('./pages/Admin/AdminLogin'));
+const AdminLayout = lazy(() => import('./pages/Admin/AdminLayout'));
+const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'));
+const AdminOrders = lazy(() => import('./pages/Admin/AdminOrders'));
+const AdminCustomOrders = lazy(() => import('./pages/Admin/AdminCustomOrders'));
+const AdminProducts = lazy(() => import('./pages/Admin/AdminProducts'));
+const AdminGallery = lazy(() => import('./pages/Admin/AdminGallery'));
+const AdminCustomers = lazy(() => import('./pages/Admin/AdminCustomers'));
+const AdminContact = lazy(() => import('./pages/Admin/AdminContact'));
+const AdminCourses = lazy(() => import('./pages/Admin/AdminCourses'));
+const AdminEnrollments = lazy(() => import('./pages/Admin/AdminEnrollments'));
+
+// Loading Fallback Component
+const PageLoader = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+    <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-4"></div>
+    <p className="text-gray-500 font-medium animate-pulse">Loading Aira3D...</p>
+  </div>
+);
 
 function AnimatedRoutes() {
   const location = useLocation();
-  const isAdmin = location.pathname.startsWith('/admin');
 
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}><Home /></motion.div>} />
-        <Route path="/shop" element={<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}><Shop /></motion.div>} />
-        <Route path="/product/:id" element={<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}><ProductPage /></motion.div>} />
-        <Route path="/gallery" element={<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}><Gallery /></motion.div>} />
-        <Route path="/custom-order" element={<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}><CustomOrder /></motion.div>} />
-         <Route path="/checkout" element={<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}><Checkout /></motion.div>} />
-         <Route path="/order-confirmation/:orderId" element={<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}><OrderConfirmation /></motion.div>} />
-         <Route path="/about" element={<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}><About /></motion.div>} />
-         <Route path="/workshop" element={<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}><Workshop /></motion.div>} />
-         <Route path="/workshop/register" element={<motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}><WorkshopRegistration /></motion.div>} />
-         <Route path="/contact" element={<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}><Contact /></motion.div>} />
-        <Route path="/login" element={<motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}><Auth /></motion.div>} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="orders" element={<AdminOrders />} />
-          <Route path="custom-orders" element={<AdminCustomOrders />} />
-          <Route path="products" element={<AdminProducts />} />
-          <Route path="gallery" element={<AdminGallery />} />
-          <Route path="customers" element={<AdminCustomers />} />
-          <Route path="contact" element={<AdminContact />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<Home />} />
+          <Route path="/shop" element={<Shop />} />
+          <Route path="/product/:id" element={<ProductPage />} />
+          <Route path="/gallery" element={<Gallery />} />
+          <Route path="/custom-order" element={<CustomOrder />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/workshop" element={<Workshop />} />
+          <Route path="/workshop/register" element={<WorkshopRegistration />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/login" element={<Auth />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/courses" element={<Courses />} />
+          <Route path="/courses/:id" element={<CourseDetails />} />
+          <Route path="/courses/:id/enroll" element={<CourseEnrollment />} />
+          
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="custom-orders" element={<AdminCustomOrders />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="gallery" element={<AdminGallery />} />
+            <Route path="customers" element={<AdminCustomers />} />
+            <Route path="contact" element={<AdminContact />} />
+            <Route path="courses" element={<AdminCourses />} />
+            <Route path="enrollments" element={<AdminEnrollments />} />
+          </Route>
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </AnimatePresence>
   );
 }
@@ -70,9 +100,9 @@ export default function App() {
     <CartProvider>
       <AuthProvider>
         <Router>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-50 transition-colors duration-300">
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-50 transition-colors duration-300 flex flex-col">
             <ConditionalNavbar />
-            <main>
+            <main className="flex-1">
               <AnimatedRoutes />
             </main>
             <ConditionalFooter />
@@ -95,9 +125,3 @@ function ConditionalFooter() {
   if (location.pathname.startsWith('/admin')) return null;
   return <Footer />;
 }
-
-
-
-
-
-

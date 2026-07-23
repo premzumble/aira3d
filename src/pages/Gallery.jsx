@@ -4,7 +4,6 @@ import {
   collection,
   getDocs,
   query,
-  where,
   orderBy,
   db
 } from "../firebase/index.js";

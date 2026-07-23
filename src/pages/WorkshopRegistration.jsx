@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import app, { db } from '../firebase';
+import { apiService } from '../services/api';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -37,26 +38,18 @@ export default function WorkshopRegistration() {
 
   const createRazorpayOrder = async () => {
     try {
-      const response = await fetch(
-        'https://us-central1-aira3d.cloudfunctions.net/createRazorpayOrder',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: 99,
-            currency: 'INR',
-            receipt: `workshop_${Date.now()}`,
-            notes: {
-              name: formData.name,
-              email: formData.email,
-              phone: formData.phone,
-              city: formData.city,
-              experience: formData.experience
-            }
-          })
+      const order = await apiService.createRazorpayOrder({
+        amount: 99,
+        currency: 'INR',
+        receipt: `workshop_${Date.now()}`,
+        notes: {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          city: formData.city,
+          experience: formData.experience
         }
-      );
-      const order = await response.json();
+      });
       return order;
     } catch (error) {
       console.error('Error creating order:', error);
@@ -102,20 +95,11 @@ export default function WorkshopRegistration() {
   const verifyPayment = async (paymentResponse) => {
     setLoading(true);
     try {
-      const response = await fetch(
-        'https://us-central1-aira3d.cloudfunctions.net/verifyPayment',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            razorpay_order_id: paymentResponse.razorpay_order_id,
-            razorpay_payment_id: paymentResponse.razorpay_payment_id,
-            razorpay_signature: paymentResponse.razorpay_signature
-          })
-        }
-      );
-
-      const result = await response.json();
+      const result = await apiService.verifyPayment({
+        razorpay_order_id: paymentResponse.razorpay_order_id,
+        razorpay_payment_id: paymentResponse.razorpay_payment_id,
+        razorpay_signature: paymentResponse.razorpay_signature
+      });
 
       if (result.success) {
         const registrationData = {
@@ -131,13 +115,21 @@ export default function WorkshopRegistration() {
         };
 
         await addDoc(collection(db, 'workshop_registrations'), registrationData);
+        
+        // Add to Google Sheets
+        try {
+          await apiService.addToGoogleSheets(registrationData);
+        } catch (sheetError) {
+          console.error('Error adding to Google Sheets:', sheetError);
+        }
+
         toast.success('Registration successful! Check your email for details.');
         navigate('/workshop/success');
       } else {
         toast.error('Payment verification failed. Please contact support.');
       }
     } catch (error) {
-      toast.error('Error processing registration. Please try again.');
+      toast.error(error.message || 'Error processing registration. Please try again.');
       console.error(error);
     } finally {
       setLoading(false);

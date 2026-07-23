@@ -4,7 +4,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == "kraut9011@gmail.com";
+      return request.auth != null && 
+        (request.auth.token.email == "kraut9011@gmail.com" || request.auth.token.email == "premzumble@gmail.com");
     }
 
     match /products/{productId} {
@@ -50,6 +51,16 @@ service cloud.firestore {
     match /workshop_registrations/{registrationId} {
       allow create: if true;
       allow read: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    match /courses/{courseId} {
+      allow read, write: if true;
+    }
+
+    match /enrollments/{enrollmentId} {
+      allow create: if true;
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
       allow update, delete: if isAdmin();
     }
 

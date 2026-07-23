@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, db } from '../../firebase/index.js';
+import { collection, getDocs, db } from '../../firebase';
 import { formatPrice } from '../../utils/formatHelpers.js';
 import { motion } from 'framer-motion';
+import { MagnifyingGlassIcon, UsersIcon } from '@heroicons/react/24/outline';
+import Input from '../../components/ui/Input';
+import Badge from '../../components/ui/Badge';
 
 export default function AdminCustomers() {
   const [customers, setCustomers] = useState([]);
@@ -55,72 +58,89 @@ export default function AdminCustomers() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-900">Customers</h1>
-        <input
-          type="text"
-          placeholder="Search by name or email..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-50 text-gray-900 dark:text-gray-900 text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-        />
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-gray-900">Customers</h1>
+          <p className="text-gray-500 mt-1">View and manage customer data and purchase history.</p>
+        </div>
+        <div className="w-full sm:w-64">
+          <Input
+            icon={MagnifyingGlassIcon}
+            placeholder="Search customers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-50 rounded-xl shadow-sm overflow-hidden">
-        {filteredCustomers.length === 0 ? (
-          <p className="p-6 text-center text-gray-400">No customers found</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-50">
+      {filteredCustomers.length === 0 ? (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-12 text-center">
+          <UsersIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg font-medium">No customers found.</p>
+          <p className="text-gray-400 mt-1">Try adjusting your search criteria.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200">
+            <table className="w-full text-sm text-left whitespace-nowrap">
+              <thead className="bg-gray-50/80 sticky top-0 z-10 border-b border-gray-100 backdrop-blur-sm">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-800 uppercase">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-800 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-800 uppercase">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-800 uppercase">Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-800 uppercase">Total Orders</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-800 uppercase">Total Spent</th>
+                  <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-wider text-xs">Customer</th>
+                  <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-wider text-xs">Contact</th>
+                  <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-wider text-xs">Location</th>
+                  <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-wider text-xs text-center">Orders</th>
+                  <th className="px-6 py-4 font-bold text-gray-500 uppercase tracking-wider text-xs text-right">Total Spent</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="divide-y divide-gray-50">
                 {filteredCustomers.map((customer, index) => (
                   <motion.tr
                     key={customer.email}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: index * 0.05 }}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    className="hover:bg-gray-50/80 transition-colors group"
                   >
-                    <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-900">{customer.name || 'N/A'}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-900">{customer.email}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-900">{customer.phone || 'N/A'}</td>
-                    <td className="px-4 py-3 max-w-[150px] truncate text-gray-600 dark:text-gray-900">{customer.addresses || 'N/A'}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-900">{customer.orderCount}</td>
-                    <td className="px-4 py-3 font-semibold text-orange-600 dark:text-orange-400">{formatPrice(customer.totalSpent)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-lg">
+                           {(customer.name || 'U').charAt(0).toUpperCase()}
+                         </div>
+                         <div>
+                            <p className="font-bold text-gray-900">{customer.name || 'Unknown'}</p>
+                            <p className="text-xs text-gray-500">{customer.email}</p>
+                         </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-gray-900 font-medium">{customer.phone || 'N/A'}</p>
+                    </td>
+                    <td className="px-6 py-4 max-w-[200px] truncate text-gray-600 font-medium" title={customer.addresses}>
+                      {customer.addresses || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <Badge variant="info" className="px-3">
+                        {customer.orderCount}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-gray-900">
+                      {formatPrice(customer.totalSpent)}
+                    </td>
                   </motion.tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
