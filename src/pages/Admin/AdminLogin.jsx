@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { ADMIN_EMAIL } from '../../utils/constants.js';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, getAuth, fetchSignInMethodsForEmail } from '../../firebase/index.js';
-import toast from 'react-hot-toast';
 
 const HARDCODED_ADMIN = { email: 'kraut9011@gmail.com', password: 'Shri@123' };
 
@@ -12,6 +11,7 @@ export default function AdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -26,6 +26,7 @@ export default function AdminLogin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
@@ -33,24 +34,24 @@ export default function AdminLogin() {
         sessionStorage.setItem('hardcodedAdmin', 'true');
         try {
           await signInWithEmailAndPassword(auth, email, password);
-          toast.success('Login successful! Redirecting...');
+          setSuccess('Login successful! Redirecting...');
         } catch (err) {
           if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
              try {
                 await createUserWithEmailAndPassword(auth, email, password);
-                toast.success('Admin account created and logged in!');
+                setSuccess('Admin account created and logged in!');
              } catch (createErr) {
                 console.error("Error creating admin account:", createErr);
              }
           } else {
-             toast.success('Session active! Redirecting...');
+             setSuccess('Session active! Redirecting...');
           }
         }
         setTimeout(() => navigate('/admin/dashboard'), 600);
       } else {
         const methods = await fetchSignInMethodsForEmail(auth, email);
         if (methods.length === 0) {
-          setError('No account found with this email. Please register first.');
+          setError('No account found with this email.');
           setLoading(false);
           return;
         }
@@ -69,26 +70,48 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <div className="mb-8 text-center">
+        <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">Aira3D Admin</h1>
+        <p className="text-gray-500 font-medium">Secure Dashboard Access</p>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl shadow-2xl shadow-orange-400/10 p-8 w-full max-w-md border border-gray-200"
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-8 w-full max-w-md border border-gray-100"
       >
-        <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">
-          Admin<span className="text-orange-600"> Login</span>
-        </h1>
-        <p className="text-gray-600 text-center mb-8">Aira3D Dashboard</p>
-
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-red-50 border border-red-200 text-red-600 px-5 py-4 rounded-lg mb-6 text-center shadow-sm"
-          >
-            <p className="text-lg font-semibold">{error}</p>
-          </motion.div>
-        )}
+        <AnimatePresence mode="wait">
+          {error && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0, y: -10, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              className="mb-6 bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span>{error}</span>
+            </motion.div>
+          )}
+          {success && (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, y: -10, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              className="mb-6 bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>{success}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -98,7 +121,7 @@ export default function AdminLogin() {
               name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none transition"
+              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
               placeholder="admin@aira3d.com"
               required
             />
@@ -111,7 +134,7 @@ export default function AdminLogin() {
               name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none transition"
+              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
               placeholder="Enter password"
               required
             />
@@ -120,9 +143,9 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-orange-500 text-white font-semibold py-3 rounded-lg hover:bg-orange-600 transition disabled:opacity-50 shadow-lg shadow-orange-400/30"
+            className="w-full py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary-500/20"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
       </motion.div>

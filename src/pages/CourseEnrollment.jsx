@@ -148,6 +148,11 @@ const CourseEnrollment = () => {
             });
 
             if (verifyData.success) {
+              await updateDoc(doc(db, 'enrollments', enrollmentId), {
+                paymentStatus: 'Paid',
+                enrollmentStatus: 'Confirmed',
+                updatedAt: serverTimestamp()
+              });
               setEnrollmentData({ id: enrollmentId, ...formData });
               setShowSuccessModal(true);
             } else {

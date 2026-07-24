@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import {
   signInWithEmailAndPassword,
@@ -131,82 +131,76 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-        >
-          <motion.div
-            initial={{ y: 30 }}
-            animate={{ y: 0 }}
-            className="bg-red-500 text-white px-10 py-6 rounded-2xl shadow-2xl text-center max-w-lg mx-4"
-          >
-            <p className="text-3xl font-bold mb-2">⚠️</p>
-            <p className="text-2xl font-bold leading-tight">{error}</p>
-            <button
-              onClick={() => setError("")}
-              className="mt-6 px-8 py-3 bg-white text-red-500 font-bold rounded-xl hover:bg-gray-100 transition-colors text-lg"
-            >OK</button>
-          </motion.div>
-        </motion.div>
-      )}
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
+      
+      {/* Brand Header */}
+      <div className="mb-8 text-center">
+        <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">Aira3D</h1>
+        <p className="text-gray-500 font-medium">Elevate your 3D printing journey</p>
+      </div>
 
-      {success && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-        >
-          <motion.div
-            initial={{ y: 30 }}
-            animate={{ y: 0 }}
-            className="bg-green-500 text-white px-10 py-6 rounded-2xl shadow-2xl text-center max-w-lg mx-4"
-          >
-            <p className="text-3xl font-bold mb-2">✅</p>
-            <p className="text-2xl font-bold leading-tight">{success}</p>
-          </motion.div>
-        </motion.div>
-      )}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md"
       >
-        <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden">
-          <div className="bg-orange-600 px-8 py-6 text-center">
-            <h1 className="text-2xl font-bold text-white">Aira3D</h1>
-            <p className="text-orange-100 text-sm mt-1">Your account</p>
-          </div>
-          <div className="flex">
+        <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+          <div className="flex border-b border-gray-100">
             <button
-              onClick={() => { setTab("login"); setError(""); }}
-              className={`flex-1 py-4 text-center font-semibold text-sm transition-all duration-300 ${
+              onClick={() => { setTab("login"); setError(""); setSuccess(""); }}
+              className={`flex-1 py-4 text-center font-bold text-sm transition-all duration-300 ${
                 tab === "login"
-                  ? "bg-white text-orange-600 shadow-inner border-b-2 border-orange-600"
-                  : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  ? "bg-transparent text-primary-600 border-b-2 border-primary-600"
+                  : "bg-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50"
               }`}
             >
-              Login
+              Sign In
             </button>
             <button
-              onClick={() => { setTab("register"); setError(""); }}
-              className={`flex-1 py-4 text-center font-semibold text-sm transition-all duration-300 relative ${
+              onClick={() => { setTab("register"); setError(""); setSuccess(""); }}
+              className={`flex-1 py-4 text-center font-bold text-sm transition-all duration-300 ${
                 tab === "register"
-                  ? "bg-white text-orange-600 shadow-inner border-b-2 border-orange-600"
-                  : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  ? "bg-transparent text-primary-600 border-b-2 border-primary-600"
+                  : "bg-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50"
               }`}
             >
-              Register
-              <span className="absolute top-1 right-4 bg-orange-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">New</span>
+              Create Account
             </button>
           </div>
 
           <div className="p-8">
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0, y: -10, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                  exit={{ opacity: 0, y: -10, height: 0 }}
+                  className="mb-6 bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span>{error}</span>
+                </motion.div>
+              )}
+              {success && (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, y: -10, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                  exit={{ opacity: 0, y: -10, height: 0 }}
+                  className="mb-6 bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-xl text-sm font-medium flex items-start gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>{success}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {tab === "login" ? (
               <form onSubmit={handleLogin} className="space-y-5">
                 <div>
@@ -216,7 +210,7 @@ export default function Auth() {
                     value={loginData.email}
                     onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                     placeholder="you@example.com"
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                     required
                   />
                 </div>
@@ -227,7 +221,7 @@ export default function Auth() {
                     value={loginData.password}
                     onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                     placeholder="Enter your password"
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                     required
                   />
                 </div>
@@ -236,19 +230,19 @@ export default function Auth() {
                     onClick={(e) => {
                       e.preventDefault();
                       if (!loginData.email) {
-                        toast.error("Please enter your email address first.");
+                        setError("Please enter your email address first to reset password.");
                         return;
                       }
                       sendPasswordResetEmail(auth, loginData.email)
-                        .then(() => toast.success("Password reset email sent! Check your inbox."))
+                        .then(() => setSuccess("Password reset email sent! Check your inbox."))
                         .catch((err) => {
                           const msg = err.code === "auth/user-not-found"
                             ? "No account found with this email."
                             : "Failed to send reset email. Please try again.";
-                          toast.error(msg);
+                          setError(msg);
                         });
                     }}
-                    className="text-sm text-orange-600 hover:text-orange-700 cursor-pointer transition-colors"
+                    className="text-sm text-primary-600 hover:text-primary-700 cursor-pointer transition-colors"
                   >
                     Forgot Password?
                   </span>
@@ -256,9 +250,9 @@ export default function Auth() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                  className="w-full py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary-500/20"
                 >
-                  {loading ? "Signing In..." : "Login"}
+                  {loading ? "Signing In..." : "Sign In"}
                 </button>
                 <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
@@ -292,7 +286,7 @@ export default function Auth() {
                     value={registerData.name}
                     onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
                     placeholder="John Doe"
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                     required
                   />
                 </div>
@@ -303,7 +297,7 @@ export default function Auth() {
                     value={registerData.email}
                     onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                     placeholder="you@example.com"
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                     required
                   />
                 </div>
@@ -314,7 +308,7 @@ export default function Auth() {
                     value={registerData.password}
                     onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                     placeholder="Create a password"
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                     required
                     minLength={6}
                   />
@@ -326,14 +320,14 @@ export default function Auth() {
                     value={registerData.confirmPassword}
                     onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
                     placeholder="Confirm your password"
-                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                     required
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                  className="w-full py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
                 >
                   {loading ? "Creating Account..." : "Create Account"}
                 </button>

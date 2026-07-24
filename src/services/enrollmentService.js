@@ -35,9 +35,9 @@ export const getEnrollmentsByCourse = async (courseId) => {
 export const getAllEnrollments = async () => {
   try {
     const colRef = collection(db, ENROLLMENTS_COLLECTION);
-    const q = query(colRef, orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const snapshot = await getDocs(colRef);
+    const enrollments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return enrollments.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
   } catch (error) {
     console.error('Error fetching all enrollments:', error);
     throw error;

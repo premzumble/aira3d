@@ -3,10 +3,10 @@ import { formatDate } from './formatHelpers.js';
 
 export const exportEnrollmentsToExcel = (enrollments, courseTitle) => {
   const data = enrollments.map(enrollment => ({
-    'Name': enrollment.name || '',
+    'Name': enrollment.studentName || enrollment.name || '',
     'Email': enrollment.email || '',
     'Phone': enrollment.phone || '',
-    'Course': enrollment.course || courseTitle || '',
+    'Course': enrollment.courseName || enrollment.course || courseTitle || '',
     'Amount': enrollment.amount || '',
     'Payment Status': enrollment.paymentStatus || '',
     'Enrollment Date': enrollment.createdAt ? formatDate(enrollment.createdAt) : '',
@@ -47,10 +47,10 @@ export const exportEnrollmentsToCSV = (enrollments, courseTitle) => {
   
   for (const enrollment of enrollments) {
     const values = [
-      enrollment.name || '',
+      enrollment.studentName || enrollment.name || '',
       enrollment.email || '',
       enrollment.phone || '',
-      enrollment.course || courseTitle || '',
+      enrollment.courseName || enrollment.course || courseTitle || '',
       enrollment.amount || '',
       enrollment.paymentStatus || '',
       enrollment.createdAt ? formatDate(enrollment.createdAt) : '',

@@ -101,12 +101,7 @@ const CourseDetails = () => {
   const seatsLeft = course.maxStudents ? Math.max(0, course.maxStudents - (course.enrolledCount || 0)) : null;
   const seatsLeftPercentage = course.maxStudents ? (seatsLeft / course.maxStudents) * 100 : 100;
   const isSellingFast = seatsLeft !== null && seatsLeft <= 5;
-  const modules = course.faqs && course.faqs.length > 0 ? course.faqs.map(f => ({ q: f.q || f.question, a: f.a || f.answer })) : [
-    { q: "Introduction & Setup", a: "Learn the basics and set up your workspace." },
-    { q: "Core Concepts", a: "Dive deep into the foundational theories and practical applications." },
-    { q: "Advanced Techniques", a: "Master complex workflows and industry-standard practices." },
-    { q: "Final Project", a: "Apply your knowledge to build a comprehensive real-world project." }
-  ];
+  const modules = course.faqs && course.faqs.length > 0 ? course.faqs.map(f => ({ q: f.q || f.question, a: f.a || f.answer })) : [];
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
@@ -167,18 +162,20 @@ const CourseDetails = () => {
               transition={{ delay: 0.2 }}
               className="flex flex-wrap items-center gap-6 text-sm text-gray-300"
             >
-              <div className="flex items-center gap-2">
-                <StarIconSolid className="w-5 h-5 text-amber-400" />
-                <span className="font-bold text-white">4.9</span>
-                <span className="text-gray-400">(2.4k ratings)</span>
-              </div>
+              {course.rating && (
+                <div className="flex items-center gap-2">
+                  <StarIconSolid className="w-5 h-5 text-amber-400" />
+                  <span className="font-bold text-white">{course.rating}</span>
+                  <span className="text-gray-400">({course.ratingCount || 0} ratings)</span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <UsersIcon className="w-5 h-5 text-gray-400" />
                 <span>{course.enrolledCount || 0} students enrolled</span>
               </div>
               <div className="flex items-center gap-2">
                 <AcademicCapIcon className="w-5 h-5 text-gray-400" />
-                <span>Taught by <strong className="text-white">{course.instructorName || 'Industry Experts'}</strong></span>
+                <span>Taught by <strong className="text-white">{course.instructorName || 'Aira3D Expert'}</strong></span>
               </div>
             </motion.div>
           </div>
@@ -247,45 +244,46 @@ const CourseDetails = () => {
             </div>
 
             {/* Syllabus / Modules (Coursera Style) */}
-            <div>
-              <h2 className="text-2xl font-display font-bold text-gray-900 mb-6">Syllabus</h2>
-              <div className="space-y-4">
-                {modules.map((module, idx) => (
-                  <div key={idx} className="bg-white border border-gray-200 rounded-2xl overflow-hidden transition-all duration-300 hover:border-gray-300">
-                    <button
-                      onClick={() => setActiveModule(activeModule === idx ? null : idx)}
-                      className="w-full px-6 py-5 flex items-center justify-between bg-white text-left"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center font-bold font-display">
-                          {idx + 1}
-                        </div>
-                        <h3 className="font-bold text-gray-900 text-lg">{module.q}</h3>
-                      </div>
-                      <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${activeModule === idx ? 'rotate-180' : ''}`} />
-                    </button>
-                    <AnimatePresence>
-                      {activeModule === idx && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="px-6 pb-6 pt-2 pl-20 text-gray-600 border-t border-gray-100">
-                            <p className="mb-4">{module.a}</p>
-                            <div className="flex items-center gap-6 text-sm font-medium">
-                              <span className="flex items-center gap-1.5"><PlayCircleIcon className="w-5 h-5 text-primary-500" /> 3 videos</span>
-                              <span className="flex items-center gap-1.5"><DocumentTextIcon className="w-5 h-5 text-primary-500" /> 1 reading</span>
-                            </div>
+            {modules && modules.length > 0 && (
+              <div>
+                <h2 className="text-2xl font-display font-bold text-gray-900 mb-6">Syllabus</h2>
+                <div className="space-y-4">
+                  {modules.map((module, idx) => (
+                    <div key={idx} className="bg-white border border-gray-200 rounded-2xl overflow-hidden transition-all duration-300 hover:border-gray-300">
+                      <button
+                        onClick={() => setActiveModule(activeModule === idx ? null : idx)}
+                        className="w-full px-6 py-5 flex items-center justify-between bg-white text-left focus:outline-none focus:bg-gray-50"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center font-bold font-display">
+                            {idx + 1}
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                ))}
+                          <h3 className="font-bold text-gray-900 text-lg">{module.q}</h3>
+                        </div>
+                        <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${activeModule === idx ? 'rotate-180' : ''}`} />
+                      </button>
+                      <AnimatePresence>
+                        {activeModule === idx && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-6 pb-6 pt-2 pl-20 text-gray-600 border-t border-gray-100">
+                              <p className="mb-4 leading-relaxed">{module.a}</p>
+                              <div className="flex items-center gap-6 text-sm font-medium">
+                                <span className="flex items-center gap-1.5"><PlayCircleIcon className="w-5 h-5 text-primary-500" /> Lesson Material</span>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Instructor Profile */}
             <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
@@ -295,14 +293,14 @@ const CourseDetails = () => {
                   <img src={course.instructorImageUrl} alt={course.instructorName} className="w-24 h-24 rounded-full object-cover shadow-md" />
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-white flex items-center justify-center text-3xl font-bold font-display shadow-md">
-                    {course.instructorName ? course.instructorName.charAt(0) : 'I'}
+                    {course.instructorName ? course.instructorName.charAt(0).toUpperCase() : 'A'}
                   </div>
                 )}
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-1">{course.instructorName || 'Expert Instructor'}</h3>
-                  <p className="text-primary-600 font-medium mb-4">Senior 3D Design Professional at Aira3D</p>
+                  <h3 className="text-xl font-bold text-gray-900 mb-1">{course.instructorName || 'Aira3D Expert'}</h3>
+                  <p className="text-primary-600 font-medium mb-4">Professional 3D Design Instructor</p>
                   <p className="text-gray-600 leading-relaxed">
-                    {course.instructorBio || `${course.instructorName || 'Our expert'} has over 10 years of experience in the 3D printing and design industry, working with top manufacturing firms and creative agencies across the globe. They are passionate about sharing their knowledge and helping the next generation of designers master the craft.`}
+                    {course.instructorBio || `${course.instructorName || 'Our expert'} is a dedicated professional passionate about sharing knowledge and helping the next generation of creators master the craft of 3D design and printing.`}
                   </p>
                 </div>
               </div>
@@ -366,11 +364,11 @@ const CourseDetails = () => {
                     <ul className="space-y-3 text-sm text-gray-600">
                       <li className="flex items-center gap-3">
                         <VideoCameraIcon className="w-5 h-5 text-gray-400" />
-                        24 hours on-demand video
+                        Premium on-demand video
                       </li>
                       <li className="flex items-center gap-3">
                         <DocumentTextIcon className="w-5 h-5 text-gray-400" />
-                        12 downloadable resources
+                        Downloadable learning resources
                       </li>
                       <li className="flex items-center gap-3">
                         <ShieldCheckIcon className="w-5 h-5 text-gray-400" />
@@ -378,7 +376,7 @@ const CourseDetails = () => {
                       </li>
                       <li className="flex items-center gap-3">
                         <AcademicCapIcon className="w-5 h-5 text-gray-400" />
-                        Certificate of completion
+                        {course.certificateAvailable ? 'Certificate of completion' : 'Proof of learning'}
                       </li>
                     </ul>
                   </div>

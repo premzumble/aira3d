@@ -80,10 +80,16 @@ const AdminEnrollments = () => {
           Enrollment Management
         </h1>
         <div className="flex space-x-2">
-          <Button onClick={() => exportEnrollmentsToCSV(filteredEnrollments)} variant="secondary" className="flex items-center gap-2">
+          <Button onClick={() => {
+            const courseTitle = courseFilter === 'All' ? 'All_Courses' : courses.find(c => c.id === courseFilter)?.title;
+            exportEnrollmentsToCSV(filteredEnrollments, courseTitle);
+          }} variant="secondary" className="flex items-center gap-2">
             <ArrowDownTrayIcon className="w-4 h-4" /> CSV
           </Button>
-          <Button onClick={() => exportEnrollmentsToExcel(filteredEnrollments)} variant="secondary" className="flex items-center gap-2">
+          <Button onClick={() => {
+            const courseTitle = courseFilter === 'All' ? 'All_Courses' : courses.find(c => c.id === courseFilter)?.title;
+            exportEnrollmentsToExcel(filteredEnrollments, courseTitle);
+          }} variant="secondary" className="flex items-center gap-2">
             <ArrowDownTrayIcon className="w-4 h-4" /> Excel
           </Button>
         </div>
