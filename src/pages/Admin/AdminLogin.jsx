@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { ADMIN_EMAIL } from '../../utils/constants.js';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, getAuth, fetchSignInMethodsForEmail } from '../../firebase/index.js';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, getAuth } from '../../firebase/index.js';
 
 const HARDCODED_ADMIN = { email: 'kraut9011@gmail.com', password: 'Shri@123' };
 
@@ -13,6 +13,7 @@ export default function AdminLogin() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const auth = getAuth();
@@ -23,46 +24,61 @@ export default function AdminLogin() {
     }
   }, [currentUser, navigate]);
 
+  const handleResetPassword = async () => {
+    const targetEmail = email || HARDCODED_ADMIN.email;
+    try {
+      await sendPasswordResetEmail(auth, targetEmail);
+      setError('');
+      setSuccess(`Password reset email sent to ${targetEmail}. Check your inbox, set a new password, then log in here.`);
+      setResetSent(true);
+    } catch (err) {
+      console.error('[AdminLogin] Reset email error:', err.code);
+      if (err.code === 'auth/user-not-found') {
+        setError('No account found with this email.');
+      } else {
+        setError('Failed to send reset email. Please try again.');
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setLoading(true);
 
+    const isHardcodedAdmin = email === HARDCODED_ADMIN.email && password === HARDCODED_ADMIN.password;
+
     try {
-      if (email === HARDCODED_ADMIN.email && password === HARDCODED_ADMIN.password) {
-        sessionStorage.setItem('hardcodedAdmin', 'true');
+      // Step 1: Try to sign in via Firebase Auth
+      await signInWithEmailAndPassword(auth, email, password);
+      setSuccess('Login successful! Redirecting...');
+      setTimeout(() => navigate('/admin/dashboard'), 600);
+    } catch (signInError) {
+      console.error('[AdminLogin] Sign-in failed:', signInError.code);
+
+      // Step 2: If hardcoded admin and sign-in failed, try to create the account
+      if (isHardcodedAdmin && (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential')) {
         try {
-          await signInWithEmailAndPassword(auth, email, password);
-          setSuccess('Login successful! Redirecting...');
-        } catch (err) {
-          if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-             try {
-                await createUserWithEmailAndPassword(auth, email, password);
-                setSuccess('Admin account created and logged in!');
-             } catch (createErr) {
-                console.error("Error creating admin account:", createErr);
-             }
+          await createUserWithEmailAndPassword(auth, email, password);
+          setSuccess('Admin account created! Redirecting...');
+          setTimeout(() => navigate('/admin/dashboard'), 600);
+        } catch (createError) {
+          console.error('[AdminLogin] Account creation failed:', createError.code);
+          if (createError.code === 'auth/email-already-in-use') {
+            setError('The password for this account has changed. Click "Reset Password" below to set a new one via email.');
           } else {
-             setSuccess('Session active! Redirecting...');
+            setError(createError.message || 'Failed to create admin account.');
           }
         }
-        setTimeout(() => navigate('/admin/dashboard'), 600);
       } else {
-        const methods = await fetchSignInMethodsForEmail(auth, email);
-        if (methods.length === 0) {
-          setError('No account found with this email.');
-          setLoading(false);
-          return;
+        if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
+          setError('Invalid email or password.');
+        } else if (signInError.code === 'auth/too-many-requests') {
+          setError('Too many failed attempts. Please try again later.');
+        } else {
+          setError(signInError.message || 'Login failed.');
         }
-        await signInWithEmailAndPassword(auth, email, password);
-        navigate('/admin/dashboard');
-      }
-    } catch (err) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setError('Invalid email or password');
-      } else {
-        setError(err.code || 'Invalid email or password');
       }
     } finally {
       setLoading(false);
@@ -147,6 +163,17 @@ export default function AdminLogin() {
           >
             {loading ? 'Authenticating...' : 'Sign In'}
           </button>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={handleResetPassword}
+              disabled={resetSent}
+              className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              {resetSent ? 'Reset email sent — check your inbox' : 'Reset Password'}
+            </button>
+          </div>
         </form>
       </motion.div>
     </div>

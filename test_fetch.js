@@ -1,30 +1,44 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, query, orderBy } from "firebase/firestore";
+import fs from 'fs';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyACwOhmhuKCgAYvY_M8c1dkaTZeAA4w2Uk",
-  authDomain: "aira3d.firebaseapp.com",
-  projectId: "aira3d",
-  storageBucket: "aira3d.firebasestorage.app",
-  messagingSenderId: "454155670700",
-  appId: "1:454155670700:web:3c38b93c8468ac04323b09"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-async function testFetch() {
-  try {
-    console.log("Fetching courses...");
-    const coursesCol = collection(db, 'courses');
-    const q = query(coursesCol, orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    console.log(`Success! Fetched ${snapshot.docs.length} courses.`);
-  } catch (error) {
-    console.error("Firebase Error:");
-    console.error(error.code);
-    console.error(error.message);
+const dotenvContent = fs.readFileSync('.env', 'utf-8');
+const env = {};
+dotenvContent.split('\n').forEach(line => {
+  const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+  if (match) {
+    let value = match[2] || '';
+    if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+    else if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+    env[match[1]] = value.trim();
   }
-}
+});
 
-testFetch();
+let projectId = env.FIREBASE_PROJECT_ID;
+let clientEmail = env.FIREBASE_CLIENT_EMAIL;
+let privateKey = env.FIREBASE_PRIVATE_KEY;
+
+if (projectId) projectId = projectId.replace(/^"|"$/g, '');
+if (clientEmail) clientEmail = clientEmail.replace(/^"|"$/g, '');
+if (privateKey) privateKey = privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
+
+try {
+  initializeApp({
+    credential: cert({
+      projectId,
+      clientEmail,
+      privateKey,
+    }),
+  });
+  
+  const db = getFirestore();
+  db.collection('orders').doc('hKxfOkChxY2AkdUh1Ovu').get().then(docSnap => {
+    if (docSnap.exists) {
+      console.log(JSON.stringify(docSnap.data(), null, 2));
+    } else {
+      console.log("Not found");
+    }
+  });
+} catch (e) {
+  console.error("FAIL:", e.message);
+}

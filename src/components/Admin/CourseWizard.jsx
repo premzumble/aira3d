@@ -15,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as SolidCheckIcon } from '@heroicons/react/24/solid';
 import Input from '../ui/Input';
+import CurriculumManager from './CurriculumManager';
 import { COURSE_CATEGORIES, COURSE_DIFFICULTIES, COURSE_DURATIONS, COURSE_BADGES, COURSE_TYPES } from '../../utils/courseConstants';
 import { uploadCourseImage } from '../../services/courseService';
 import toast from 'react-hot-toast';
@@ -144,6 +145,7 @@ const CourseWizard = ({ course, onClose, onSubmit }) => {
     toolsRequired: '',
     faqs: '',
     courseHighlights: '',
+    whatsappGroupLink: '',
     
     seoTitle: '',
     seoDescription: '',
@@ -256,6 +258,8 @@ const CourseWizard = ({ course, onClose, onSubmit }) => {
             </div>
             
             <Input label="Course Title *" name="title" value={formData.title} onChange={handleChange} placeholder="e.g. 3D Printing Masterclass" />
+            
+            <Input label="WhatsApp Group Invite Link (Optional)" name="whatsappGroupLink" value={formData.whatsappGroupLink} onChange={handleChange} placeholder="e.g. https://chat.whatsapp.com/..." />
             
             <div>
               <label className="block text-sm font-bold text-gray-900 mb-2">Short Description</label>
@@ -493,6 +497,25 @@ const CourseWizard = ({ course, onClose, onSubmit }) => {
                 className="w-full rounded-xl border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 py-3 px-4 font-mono text-sm"
                 rows={6}
               />
+            </div>
+
+            <div className="pt-8 border-t border-gray-200">
+              <div className="mb-4">
+                <h4 className="text-xl font-display font-bold text-gray-900">Course Curriculum & Video Lessons</h4>
+                <p className="text-xs text-gray-500">Manage modules, video lectures, durations, and free previews</p>
+              </div>
+              {course?.id ? (
+                <CurriculumManager courseId={course.id} courseTitle={formData.title} />
+              ) : (
+                <div className="p-6 bg-orange-50 border border-orange-200 rounded-2xl text-center">
+                  <p className="text-sm font-bold text-orange-900 mb-1">
+                    Save Course to Manage Video Lectures
+                  </p>
+                  <p className="text-xs text-orange-700">
+                    Once you save this new course, you can create modules and attach Google Drive video lectures directly!
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
         );

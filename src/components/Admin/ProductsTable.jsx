@@ -60,17 +60,17 @@ export default function ProductsTable({ products, onEdit, onDelete }) {
                   )}
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center justify-end gap-1.5">
                     <button
                       onClick={() => onEdit(product)}
-                      className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors tooltip-trigger"
+                      className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors tooltip-trigger"
                       title="Edit Product"
                     >
                       <PencilSquareIcon className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => onDelete(product.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors tooltip-trigger"
+                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors tooltip-trigger"
                       title="Delete Product"
                     >
                       <TrashIcon className="w-5 h-5" />

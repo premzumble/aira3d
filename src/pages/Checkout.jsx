@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -14,7 +14,10 @@ import {
   ShoppingBagIcon,
   CreditCardIcon,
   CheckCircleIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  TrashIcon,
+  MinusIcon,
+  PlusIcon
 } from "@heroicons/react/24/outline";
 import { LockClosedIcon } from "@heroicons/react/24/solid";
 import { apiService } from "../services/api";
@@ -33,7 +36,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const from = searchParams.get("from");
-  const { cartItems, clearCart, getCartTotal } = useCart();
+  const { cartItems, clearCart, getCartTotal, updateQuantity, removeFromCart } = useCart();
   const { currentUser } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -47,6 +50,79 @@ const Checkout = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(1);
+  const [checkoutItems, setCheckoutItems] = useState([]);
+  
+  const checkoutType = searchParams.get("type");
+
+  useEffect(() => {
+    if (checkoutType === "buynow") {
+      const stored = sessionStorage.getItem("buyNowSession");
+      if (stored) {
+        setCheckoutItems(JSON.parse(stored));
+      } else {
+        navigate("/shop");
+      }
+    } else {
+      setCheckoutItems(cartItems);
+    }
+  }, [cartItems, checkoutType, navigate]);
+
+  const getCheckoutTotal = () => {
+    return checkoutItems.reduce((total, item) => {
+      const price = Number(item.price || 0);
+      const cPrice = Number(item.customPrice || 0);
+      const qty = Number(item.quantity || 1);
+      return total + (price + cPrice) * qty;
+    }, 0);
+  };
+
+  const handleUpdateQuantity = (id, newQty, customData) => {
+    if (newQty < 1) return;
+    
+    // Update local checkout state
+    setCheckoutItems(prev => {
+      if (customData && Object.keys(customData).length > 0) {
+        return prev.map(item => (item.id === id && JSON.stringify(item.customData || {}) === JSON.stringify(customData) ? { ...item, quantity: newQty } : item));
+      }
+      return prev.map(item => (item.id === id ? { ...item, quantity: newQty } : item));
+    });
+
+    // If it's a Buy Now order, update session storage
+    if (checkoutType === "buynow") {
+      const stored = JSON.parse(sessionStorage.getItem("buyNowSession") || "[]");
+      const updated = stored.map(item => {
+        const isMatch = customData && Object.keys(customData).length > 0
+          ? item.id === id && JSON.stringify(item.customData || {}) === JSON.stringify(customData)
+          : item.id === id;
+        return isMatch ? { ...item, quantity: newQty } : item;
+      });
+      sessionStorage.setItem("buyNowSession", JSON.stringify(updated));
+    } else {
+      // If global cart, sync backwards
+      // Note: useCart's updateQuantity is not available directly, we might need to rely on cartItems useEffect
+      // Actually we have `updateQuantity` from useCart! Let's import it.
+    }
+  };
+
+  const handleRemoveItem = (id, customData) => {
+    setCheckoutItems(prev => {
+      if (customData && Object.keys(customData).length > 0) {
+        return prev.filter(item => !(item.id === id && JSON.stringify(item.customData || {}) === JSON.stringify(customData)));
+      }
+      return prev.filter(item => item.id !== id);
+    });
+
+    if (checkoutType === "buynow") {
+      const stored = JSON.parse(sessionStorage.getItem("buyNowSession") || "[]");
+      const updated = stored.filter(item => {
+        const isMatch = customData && Object.keys(customData).length > 0
+          ? item.id === id && JSON.stringify(item.customData || {}) === JSON.stringify(customData)
+          : item.id === id;
+        return !isMatch;
+      });
+      sessionStorage.setItem("buyNowSession", JSON.stringify(updated));
+    }
+  };
 
   useEffect(() => {
     loadRazorpayScript();
@@ -69,7 +145,7 @@ const Checkout = () => {
     );
   }
 
-  if (cartItems.length === 0) {
+  if (checkoutItems.length === 0) {
     return (
       <div className="min-h-screen pt-32 pb-20 flex items-center justify-center bg-gray-50">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center p-12 bg-white rounded-3xl shadow-sm border border-gray-100 max-w-md w-full mx-4">
@@ -111,7 +187,11 @@ const Checkout = () => {
       });
 
       if (verifyData.success) {
-        clearCart();
+        if (checkoutType === "buynow") {
+          sessionStorage.removeItem("buyNowSession");
+        } else {
+          clearCart();
+        }
         sessionStorage.setItem("lastOrder", JSON.stringify(orderData));
         navigate(`/order-confirmation/${orderId}`);
       } else {
@@ -138,7 +218,28 @@ const Checkout = () => {
     }
 
     const orderId = generateOrderId();
-    const totalAmount = getCartTotal();
+    const totalAmount = getCheckoutTotal();
+
+    // Stock Validation
+    try {
+      for (const item of checkoutItems) {
+        const productRef = doc(db, "products", item.id);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists()) {
+          const stock = productSnap.data().stock;
+          if (stock < item.quantity) {
+            toast.error(`Sorry, ${item.name} only has ${stock} items left in stock.`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Stock validation error:", err);
+      toast.error("Failed to verify stock. Please try again.");
+      setIsSubmitting(false);
+      return;
+    }
 
     const customerInfo = {
       ...formData,
@@ -149,9 +250,13 @@ const Checkout = () => {
     const orderData = {
       orderId,
       customerInfo,
-      items: cartItems,
+      items: checkoutItems,
       totalAmount,
       date: new Date().toISOString(),
+      userId: currentUser.uid,
+      customerName: formData.fullName,
+      customerEmail: currentUser.email,
+      customerPhone: formData.mobileNumber,
     };
 
     try {
@@ -160,6 +265,14 @@ const Checkout = () => {
         ...orderData,
         status: "Pending",
         date: serverTimestamp(),
+        statusHistory: [
+          {
+            status: "Order Placed",
+            timestamp: new Date().toISOString(),
+            updatedBy: currentUser.email || "customer",
+            note: "Order created successfully."
+          }
+        ]
       });
 
       // 2. Create Razorpay Order
@@ -373,7 +486,7 @@ const Checkout = () => {
               
               <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent mb-6">
                 <AnimatePresence initial={false}>
-                  {cartItems.map((item) => {
+                  {checkoutItems.map((item) => {
                     const itemCustomPrice = item.customPrice || 0;
                     const unitPrice = (item.price || 0) + itemCustomPrice;
                     const lineTotal = unitPrice * (item.quantity || 1);
@@ -387,13 +500,54 @@ const Checkout = () => {
                            )}
                         </div>
                         <div className="flex-1 flex flex-col min-w-0 justify-center">
-                          <h3 className="font-semibold text-gray-900 truncate text-sm">{item.name}</h3>
-                          <div className="text-xs text-gray-500 mt-1">
-                            Qty: {item.quantity || 1}
+                          <div className="flex justify-between items-start gap-2">
+                            <h3 className="font-semibold text-gray-900 truncate text-sm">{item.name}</h3>
+                            <button
+                              onClick={() => {
+                                if(checkoutType !== "buynow") {
+                                  removeFromCart(item.id, item.customData);
+                                }
+                                handleRemoveItem(item.id, item.customData);
+                              }}
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
                           </div>
-                        </div>
-                        <div className="font-bold text-gray-900 flex items-center">
-                          {formatPrice(lineTotal)}
+                          
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
+                              <button
+                                onClick={() => {
+                                  if (checkoutType !== "buynow") {
+                                    updateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1), item.customData);
+                                  }
+                                  handleUpdateQuantity(item.id, Math.max(1, (item.quantity || 1) - 1), item.customData);
+                                }}
+                                disabled={(item.quantity || 1) <= 1}
+                                className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-200 rounded-l-lg transition-colors disabled:opacity-30"
+                              >
+                                <MinusIcon className="w-3 h-3" />
+                              </button>
+                              <span className="w-8 text-center text-xs font-semibold text-gray-900">
+                                {item.quantity || 1}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  if (checkoutType !== "buynow") {
+                                    updateQuantity(item.id, (item.quantity || 1) + 1, item.customData);
+                                  }
+                                  handleUpdateQuantity(item.id, (item.quantity || 1) + 1, item.customData);
+                                }}
+                                className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-200 rounded-r-lg transition-colors"
+                              >
+                                <PlusIcon className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <div className="font-bold text-gray-900 text-sm">
+                              {formatPrice(lineTotal)}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -404,7 +558,7 @@ const Checkout = () => {
               <div className="space-y-3 pt-4 border-t border-gray-100">
                 <div className="flex justify-between text-gray-500 text-sm">
                   <span>Subtotal</span>
-                  <span className="font-medium text-gray-900">{formatPrice(getCartTotal())}</span>
+                  <span className="font-medium text-gray-900">{formatPrice(getCheckoutTotal())}</span>
                 </div>
                 <div className="flex justify-between text-gray-500 text-sm">
                   <span>Shipping</span>
@@ -413,7 +567,7 @@ const Checkout = () => {
                 <div className="flex justify-between items-end pt-4 border-t border-gray-100 mt-4">
                   <span className="text-gray-900 font-bold">Total to Pay</span>
                   <div className="text-right">
-                    <span className="text-3xl font-display font-bold text-gray-900">{formatPrice(getCartTotal())}</span>
+                    <span className="text-3xl font-display font-bold text-gray-900">{formatPrice(getCheckoutTotal())}</span>
                   </div>
                 </div>
               </div>

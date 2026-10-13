@@ -126,7 +126,7 @@ export default function ProductPage() {
   };
 
   const proceedToCheckout = (finalCustomData) => {
-    addToCart({
+    const buyNowItem = {
       id: product.id,
       name: product.name,
       price: product.price,
@@ -134,9 +134,10 @@ export default function ProductPage() {
       quantity,
       customData: { ...finalCustomData, ...(selectedColor && { color: selectedColor }) },
       customPrice: customPrice || 0,
-    });
+    };
+    sessionStorage.setItem("buyNowSession", JSON.stringify([buyNowItem]));
     setShowCustomModal(false);
-    navigate("/checkout");
+    navigate("/checkout?type=buynow");
   };
 
   const handleCustomSubmit = () => {

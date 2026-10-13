@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { collection, query, where, getDocs, db } from "../firebase/index.js";
+import { useAuth } from '../context/AuthContext';
 import { formatPrice } from "../utils/formatHelpers";
 import Button from "../components/ui/Button";
 import Badge from "../components/ui/Badge";
@@ -10,10 +11,17 @@ import { CheckCircleIcon, ArrowRightIcon, InformationCircleIcon } from "@heroico
 const OrderConfirmation = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const { currentUser, user } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const uid = currentUser?.uid || user?.uid;
+
   useEffect(() => {
+    if (!uid) {
+      setLoading(false);
+      return;
+    }
     const fetchOrder = async () => {
       try {
         const stored = sessionStorage.getItem("lastOrder");
@@ -26,9 +34,26 @@ const OrderConfirmation = () => {
           }
         }
 
-        const q = query(collection(db, "orders"), where("orderId", "==", orderId));
+        const q = query(
+          collection(db, "orders"), 
+          where("orderId", "==", orderId),
+          where("userId", "==", uid)
+        );
         const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
+        
+        // Fallback for older orders without root userId
+        if (snapshot.empty) {
+          const fallbackQ = query(
+            collection(db, "orders"), 
+            where("orderId", "==", orderId),
+            where("customerInfo.userId", "==", uid)
+          );
+          const fallbackSnap = await getDocs(fallbackQ);
+          if (!fallbackSnap.empty) {
+            const data = fallbackSnap.docs[0].data();
+            setOrder({ id: fallbackSnap.docs[0].id, ...data });
+          }
+        } else {
           const data = snapshot.docs[0].data();
           setOrder({ id: snapshot.docs[0].id, ...data });
         }
@@ -39,7 +64,7 @@ const OrderConfirmation = () => {
       }
     };
     fetchOrder();
-  }, [orderId]);
+  }, [orderId, uid]);
 
   if (loading) {
     return (

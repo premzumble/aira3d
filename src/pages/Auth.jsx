@@ -10,7 +10,7 @@ import {
   sendPasswordResetEmail,
   getAuth,
 } from "../firebase/index.js";
-import { collection, addDoc, serverTimestamp, db } from "../firebase/index.js";
+import { collection, addDoc, doc, setDoc, serverTimestamp, db } from "../firebase/index.js";
 
 const getAuthErrorMessage = (code) => {
   switch (code) {
@@ -70,14 +70,15 @@ export default function Auth() {
     setLoading(true);
     try {
       const res = await signInWithPopup(auth, new GoogleAuthProvider());
-      if (res.user && !res.user.displayName) {
+      if (res.user) {
         try {
-          await addDoc(collection(db, "users"), {
+          await setDoc(doc(db, "users", res.user.uid), {
             uid: res.user.uid,
             email: res.user.email,
-            name: res.user.displayName || res.user.email,
+            name: res.user.displayName || res.user.email || 'Anonymous',
             createdAt: serverTimestamp(),
-          });
+            lastActive: serverTimestamp()
+          }, { merge: true });
         } catch (docErr) {
           console.error("Failed to create user profile in Firestore:", docErr);
         }
@@ -104,12 +105,13 @@ export default function Auth() {
     try {
       const res = await createUserWithEmailAndPassword(auth, registerData.email, registerData.password);
       try {
-        await addDoc(collection(db, "users"), {
+        await setDoc(doc(db, "users", res.user.uid), {
           uid: res.user.uid,
           email: registerData.email,
           name: registerData.name,
           createdAt: serverTimestamp(),
-        });
+          lastActive: serverTimestamp()
+        }, { merge: true });
       } catch (docErr) {
         console.error("User created but Firestore profile failed:", docErr);
       }

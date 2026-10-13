@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { auth, onAuthStateChanged, signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "../firebase/index.js";
+import { auth, onAuthStateChanged, signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, doc, setDoc, serverTimestamp, db } from "../firebase/index.js";
 
 const AuthContext = createContext();
 
@@ -9,9 +9,22 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setLoading(false);
+      
+      if (user) {
+        try {
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            email: user.email || '',
+            name: user.displayName || user.email || 'Anonymous',
+            lastActive: serverTimestamp()
+          }, { merge: true });
+        } catch (err) {
+          console.error("Failed to update user activity in Firestore:", err);
+        }
+      }
     });
     return unsubscribe;
   }, []);

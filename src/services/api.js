@@ -74,5 +74,41 @@ export const apiService = {
       }
       throw error;
     }
+  },
+
+  validateDriveVideo: async (url) => {
+    try {
+      const response = await fetch(`${getApiUrl()}/validateDriveVideo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      return handleResponse(response);
+    } catch (error) {
+      if (error.message.toLowerCase().includes('failed to fetch')) {
+        throw new Error("Cannot connect to backend. Network unavailable.");
+      }
+      throw error;
+    }
+  },
+
+  getCourseVideoAccess: async (accessData) => {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (accessData.idToken) {
+        headers['Authorization'] = `Bearer ${accessData.idToken}`;
+      }
+      const response = await fetch(`${getApiUrl()}/courseVideoAccess`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(accessData)
+      });
+      return handleResponse(response);
+    } catch (error) {
+      if (error.message.toLowerCase().includes('failed to fetch')) {
+        throw new Error("Cannot connect to backend. Network unavailable.");
+      }
+      throw error;
+    }
   }
 };

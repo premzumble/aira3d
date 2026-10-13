@@ -5,7 +5,10 @@ service cloud.firestore {
     
     function isAdmin() {
       return request.auth != null && 
-        (request.auth.token.email == "kraut9011@gmail.com" || request.auth.token.email == "premzumble@gmail.com");
+        (request.auth.token.email == "kraut9011@gmail.com" || 
+         request.auth.token.email == "Kraut9011@gmail.com" || 
+         request.auth.token.email == "premzumble@gmail.com" ||
+         request.auth.token.email == "Premzumble@gmail.com");
     }
 
     match /products/{productId} {
@@ -15,7 +18,7 @@ service cloud.firestore {
 
     match /orders/{orderId} {
       allow create: if request.auth != null;
-      allow read: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.customerInfo.userId);
+      allow read: if isAdmin() || (request.auth != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.customerInfo.userId));
       allow update, delete: if isAdmin();
     }
 
@@ -33,7 +36,7 @@ service cloud.firestore {
     match /contactMessages/{msgId} {
       allow create: if true;
       allow read, delete: if isAdmin();
-      allow update: if false;
+      allow update: if isAdmin();
     }
 
     match /users/{userId} {
@@ -55,11 +58,35 @@ service cloud.firestore {
     }
 
     match /courses/{courseId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /modules/{moduleId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      match /lessons/{lessonId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /course_progress/{progressId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /lesson_comments/{commentId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
     }
 
     match /enrollments/{enrollmentId} {
-      allow create: if true;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow read: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
       allow update, delete: if isAdmin();
     }

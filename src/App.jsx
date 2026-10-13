@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy load pages for performance optimization
 const Home = lazy(() => import('./pages/Home'));
@@ -19,6 +20,7 @@ const About = lazy(() => import('./pages/About'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Auth = lazy(() => import('./pages/Auth'));
 const Profile = lazy(() => import('./pages/Profile'));
+const OrderDetails = lazy(() => import('./pages/OrderDetails'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const Workshop = lazy(() => import('./pages/Workshop'));
 const WorkshopRegistration = lazy(() => import('./pages/WorkshopRegistration'));
@@ -27,6 +29,7 @@ const WorkshopRegistration = lazy(() => import('./pages/WorkshopRegistration'));
 const Courses = lazy(() => import('./pages/Courses'));
 const CourseDetails = lazy(() => import('./pages/CourseDetails'));
 const CourseEnrollment = lazy(() => import('./pages/CourseEnrollment'));
+const CourseLearning = lazy(() => import('./pages/CourseLearning'));
 
 // Lazy load admin pages
 const AdminLogin = lazy(() => import('./pages/Admin/AdminLogin'));
@@ -55,41 +58,46 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Suspense fallback={<PageLoader />}>
-        <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<Home />} />
-          <Route path="/shop" element={<Shop />} />
-          <Route path="/product/:id" element={<ProductPage />} />
-          <Route path="/gallery" element={<Gallery />} />
-          <Route path="/custom-order" element={<CustomOrder />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/workshop" element={<Workshop />} />
-          <Route path="/workshop/register" element={<WorkshopRegistration />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/login" element={<Auth />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/courses/:id" element={<CourseDetails />} />
-          <Route path="/courses/:id/enroll" element={<CourseEnrollment />} />
-          
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="orders" element={<AdminOrders />} />
-            <Route path="custom-orders" element={<AdminCustomOrders />} />
-            <Route path="products" element={<AdminProducts />} />
-            <Route path="gallery" element={<AdminGallery />} />
-            <Route path="customers" element={<AdminCustomers />} />
-            <Route path="contact" element={<AdminContact />} />
-            <Route path="courses" element={<AdminCourses />} />
-            <Route path="enrollments" element={<AdminEnrollments />} />
-          </Route>
-          
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes location={location} key={location.pathname}>
+            <Route path="/" element={<Home />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/product/:id" element={<ProductPage />} />
+            <Route path="/gallery" element={<Gallery />} />
+            <Route path="/custom-order" element={<CustomOrder />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/workshop" element={<Workshop />} />
+            <Route path="/workshop/register" element={<WorkshopRegistration />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/login" element={<Auth />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/orders/:orderId" element={<OrderDetails />} />
+            <Route path="/courses" element={<Courses />} />
+            <Route path="/courses/:id" element={<CourseDetails />} />
+            <Route path="/courses/:id/enroll" element={<CourseEnrollment />} />
+            <Route path="/learn/:courseId" element={<CourseLearning />} />
+            <Route path="/courses/:courseId/learn" element={<CourseLearning />} />
+            
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="orders" element={<AdminOrders />} />
+              <Route path="custom-orders" element={<AdminCustomOrders />} />
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="gallery" element={<AdminGallery />} />
+              <Route path="customers" element={<AdminCustomers />} />
+              <Route path="contact" element={<AdminContact />} />
+              <Route path="courses" element={<AdminCourses />} />
+              <Route path="enrollments" element={<AdminEnrollments />} />
+            </Route>
+            
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ErrorBoundary>
       </Suspense>
     </AnimatePresence>
   );
@@ -116,12 +124,12 @@ export default function App() {
 
 function ConditionalNavbar() {
   const location = useLocation();
-  if (location.pathname.startsWith('/admin')) return null;
+  if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/learn')) return null;
   return <Navbar />;
 }
 
 function ConditionalFooter() {
   const location = useLocation();
-  if (location.pathname.startsWith('/admin')) return null;
+  if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/learn')) return null;
   return <Footer />;
 }

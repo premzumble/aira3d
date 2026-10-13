@@ -178,7 +178,7 @@ export default function AdminDashboard() {
             <ClockIcon className="w-8 h-8 text-yellow-600 mx-auto mb-3 relative z-10" />
             <p className="text-4xl font-display font-bold text-yellow-700 mb-1 relative z-10">{stats.pendingOrders}</p>
             <p className="text-sm font-bold text-yellow-800 uppercase tracking-wider relative z-10">Pending Orders</p>
-            <p className="text-xs text-yellow-600 mt-3 font-bold flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity relative z-10">Review Now <ArrowRightIcon className="w-3 h-3" /></p>
+            <p className="text-xs text-yellow-600 mt-3 font-bold flex items-center justify-center gap-1 relative z-10">Review Now <ArrowRightIcon className="w-3 h-3" /></p>
           </motion.div>
         </Link>
         <Link to="/admin/orders?status=Processing" className="block group">
@@ -187,7 +187,7 @@ export default function AdminDashboard() {
             <TruckIcon className="w-8 h-8 text-blue-600 mx-auto mb-3 relative z-10" />
             <p className="text-4xl font-display font-bold text-blue-700 mb-1 relative z-10">{stats.processingOrders}</p>
             <p className="text-sm font-bold text-blue-800 uppercase tracking-wider relative z-10">Processing</p>
-            <p className="text-xs text-blue-600 mt-3 font-bold flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity relative z-10">View Orders <ArrowRightIcon className="w-3 h-3" /></p>
+            <p className="text-xs text-blue-600 mt-3 font-bold flex items-center justify-center gap-1 relative z-10">View Orders <ArrowRightIcon className="w-3 h-3" /></p>
           </motion.div>
         </Link>
         <div className="bg-green-50/80 border border-green-200 rounded-3xl p-6 text-center h-full relative overflow-hidden">

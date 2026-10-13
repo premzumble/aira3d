@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import app from '../firebase/index.js';
 import { formatPrice } from '../utils/formatHelpers.js';
 import toast from 'react-hot-toast';
-import WhatsAppSuccessModal from '../components/WhatsAppSuccessModal.jsx';
+import EnrollmentSuccessModal from '../components/EnrollmentSuccessModal.jsx';
 import { CheckIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { apiService } from '../services/api';
 
@@ -35,6 +34,9 @@ const CourseEnrollment = () => {
   
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [enrollmentData, setEnrollmentData] = useState(null);
+
+  const [verificationState, setVerificationState] = useState('idle'); // 'idle', 'verifying', 'error'
+  const [pendingVerification, setPendingVerification] = useState(null);
 
   const [formData, setFormData] = useState({
     fullName: currentUser?.displayName || '',
@@ -64,8 +66,24 @@ const CourseEnrollment = () => {
       return;
     }
 
-    const fetchCourse = async () => {
+    const fetchCourseAndCheckEnrollment = async () => {
       try {
+        // 1. Check if user is already enrolled
+        const q = query(
+          collection(db, 'enrollments'),
+          where('userId', '==', currentUser.uid),
+          where('courseId', '==', id),
+          where('enrollmentStatus', '==', 'Confirmed')
+        );
+        const enrolledDocs = await getDocs(q);
+        
+        if (!enrolledDocs.empty) {
+          toast.success("You are already enrolled in this course!");
+          navigate(`/courses/${id}`);
+          return;
+        }
+
+        // 2. Load course details
         const docSnap = await getDoc(doc(db, 'courses', id));
         if (docSnap.exists()) {
           setCourse({ id: docSnap.id, ...docSnap.data() });
@@ -79,8 +97,48 @@ const CourseEnrollment = () => {
         setLoading(false);
       }
     };
-    fetchCourse();
+    
+    fetchCourseAndCheckEnrollment();
+    fetchCourseAndCheckEnrollment();
   }, [id, currentUser, navigate]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('pending_verification');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.userId === currentUser?.uid && parsed.courseId === id) {
+          setPendingVerification(parsed);
+          setVerificationState('error'); 
+        }
+      } catch(e) {
+        localStorage.removeItem('pending_verification');
+      }
+    }
+  }, [currentUser, id]);
+
+  const handleVerification = async (payload) => {
+    setVerificationState('verifying');
+    try {
+      const verifyData = await apiService.verifyPayment(payload);
+      if (verifyData.success) {
+        localStorage.removeItem('pending_verification');
+        setVerificationState('idle');
+        setEnrollmentData({ id: payload.enrollmentId, ...formData });
+        if (course?.whatsappGroupLink) {
+          setShowSuccessModal(true);
+        } else {
+          toast.success("Enrollment Successful!");
+          navigate(`/learn/${id}`);
+        }
+      } else {
+        throw new Error("Payment verification failed");
+      }
+    } catch (error) {
+      console.error(error);
+      setVerificationState('error');
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -109,6 +167,20 @@ const CourseEnrollment = () => {
   const handlePayment = async () => {
     setIsProcessing(true);
     try {
+      // Final safety check for duplicate enrollment before initiating payment
+      const q = query(
+        collection(db, 'enrollments'),
+        where('userId', '==', currentUser.uid),
+        where('courseId', '==', id),
+        where('enrollmentStatus', '==', 'Confirmed')
+      );
+      const enrolledDocs = await getDocs(q);
+      if (!enrolledDocs.empty) {
+        toast.error("You are already enrolled!");
+        navigate(`/courses/${id}`);
+        return;
+      }
+
       const isScriptLoaded = await loadRazorpayScript();
       if (!isScriptLoaded) {
         throw new Error("Razorpay SDK failed to load. Are you online?");
@@ -138,31 +210,17 @@ const CourseEnrollment = () => {
         description: `Enrollment for ${course.title}`,
         order_id: orderData.id,
         handler: async function (response) {
-          try {
-            const verifyData = await apiService.verifyPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              enrollmentId: enrollmentId,
-              courseId: id
-            });
-
-            if (verifyData.success) {
-              await updateDoc(doc(db, 'enrollments', enrollmentId), {
-                paymentStatus: 'Paid',
-                enrollmentStatus: 'Confirmed',
-                updatedAt: serverTimestamp()
-              });
-              setEnrollmentData({ id: enrollmentId, ...formData });
-              setShowSuccessModal(true);
-            } else {
-              throw new Error("Payment verification failed");
-            }
-          } catch (error) {
-            console.error(error);
-            toast.error(error.message || 'Payment verification failed');
-            await updateDoc(doc(db, 'enrollments', enrollmentId), { paymentStatus: 'Failed' });
-          }
+          const payload = {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            enrollmentId: enrollmentId,
+            courseId: id,
+            userId: currentUser.uid
+          };
+          localStorage.setItem('pending_verification', JSON.stringify(payload));
+          setPendingVerification(payload);
+          handleVerification(payload);
         },
         prefill: {
           name: formData.fullName,
@@ -175,7 +233,6 @@ const CourseEnrollment = () => {
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', async function (response) {
         toast.error("Payment failed or cancelled");
-        await updateDoc(doc(db, 'enrollments', enrollmentId), { paymentStatus: 'Failed' });
         setIsProcessing(false);
       });
       rzp.open();
@@ -189,6 +246,37 @@ const CourseEnrollment = () => {
   };
 
   if (loading) return <div className="min-h-screen bg-gray-50 flex justify-center items-center"><div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div></div>;
+
+  if (verificationState !== 'idle') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
+        <div className="bg-white p-10 rounded-3xl shadow-xl max-w-lg w-full border border-gray-100">
+          {verificationState === 'verifying' ? (
+            <>
+              <div className="w-20 h-20 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-8"></div>
+              <h2 className="text-3xl font-display font-bold text-gray-900 mb-4">Verifying Payment</h2>
+              <p className="text-gray-600 text-lg">Your payment has been received. We are securely confirming your enrollment.</p>
+              <p className="text-primary-600 font-bold mt-4 animate-pulse">Please do not close or refresh this page.</p>
+            </>
+          ) : (
+            <>
+              <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
+                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <h2 className="text-3xl font-display font-bold text-gray-900 mb-4">Finalizing Enrollment</h2>
+              <p className="text-gray-600 text-lg mb-8">We've received your payment, but the server is taking longer than usual to respond. Your money is completely safe.</p>
+              <button 
+                onClick={() => handleVerification(pendingVerification || JSON.parse(localStorage.getItem('pending_verification')))}
+                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all text-lg"
+              >
+                Reconnect & Complete
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const steps = [
     { num: 1, title: 'Personal Info' },
@@ -430,10 +518,9 @@ const CourseEnrollment = () => {
         </div>
       </div>
 
-      <WhatsAppSuccessModal 
+      <EnrollmentSuccessModal 
         isOpen={showSuccessModal} 
         onClose={() => setShowSuccessModal(false)}
-        enrollmentData={enrollmentData}
         courseData={course}
       />
     </div>

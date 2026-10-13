@@ -162,7 +162,7 @@ export default function AdminGallery() {
 
                 <button
                   onClick={() => setDeleteConfirm(item.id)}
-                  className="absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm text-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 hover:scale-110 shadow-sm"
+                  className="absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm text-red-600 rounded-full flex items-center justify-center transition-all hover:bg-red-50 hover:scale-110 shadow-sm"
                   title="Delete Item"
                 >
                   <TrashIcon className="w-5 h-5" />

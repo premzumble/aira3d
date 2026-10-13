@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusIcon, MagnifyingGlassIcon, PencilSquareIcon, DocumentDuplicateIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { 
+  PlusIcon, 
+  MagnifyingGlassIcon, 
+  PencilSquareIcon, 
+  DocumentDuplicateIcon, 
+  TrashIcon, 
+  EyeIcon, 
+  VideoCameraIcon,
+  XMarkIcon 
+} from '@heroicons/react/24/outline';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import CourseWizard from '../../components/Admin/CourseWizard';
+import CurriculumManager from '../../components/Admin/CurriculumManager';
 import { getAllCourses, createCourse, updateCourse, deleteCourse, duplicateCourse, togglePublish } from '../../services/courseService';
 import { COURSE_CATEGORIES } from '../../utils/courseConstants';
 import { formatPrice } from '../../utils/formatHelpers';
@@ -18,6 +28,7 @@ const AdminCourses = () => {
   
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [curriculumCourse, setCurriculumCourse] = useState(null);
 
   useEffect(() => {
     fetchCourses();
@@ -237,16 +248,24 @@ const AdminCourses = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
-                          <button onClick={() => handleTogglePublish(course.id, course.status)} className="text-gray-400 hover:text-orange-500" title={course.status === 'Published' ? 'Unpublish' : 'Publish'}>
+                          <button 
+                            onClick={() => setCurriculumCourse(course)} 
+                            className="p-1.5 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg flex items-center gap-1 text-xs font-bold transition-colors" 
+                            title="Manage Video Curriculum"
+                          >
+                            <VideoCameraIcon className="w-4 h-4" />
+                            <span>Curriculum</span>
+                          </button>
+                          <button onClick={() => handleTogglePublish(course.id, course.status)} className="p-1.5 text-gray-500 hover:text-orange-500" title={course.status === 'Published' ? 'Unpublish' : 'Publish'}>
                             <EyeIcon className="w-5 h-5" />
                           </button>
-                          <button onClick={() => handleOpenWizard(course)} className="text-gray-400 hover:text-blue-500" title="Edit">
+                          <button onClick={() => handleOpenWizard(course)} className="p-1.5 text-gray-500 hover:text-blue-500" title="Edit">
                             <PencilSquareIcon className="w-5 h-5" />
                           </button>
-                          <button onClick={() => handleDuplicate(course.id)} className="text-gray-400 hover:text-green-500" title="Duplicate">
+                          <button onClick={() => handleDuplicate(course.id)} className="p-1.5 text-gray-500 hover:text-green-500" title="Duplicate">
                             <DocumentDuplicateIcon className="w-5 h-5" />
                           </button>
-                          <button onClick={() => handleDelete(course.id)} className="text-gray-400 hover:text-red-500" title="Delete">
+                          <button onClick={() => handleDelete(course.id)} className="p-1.5 text-gray-500 hover:text-red-500" title="Delete">
                             <TrashIcon className="w-5 h-5" />
                           </button>
                         </div>
@@ -259,6 +278,37 @@ const AdminCourses = () => {
           </div>
         )}
       </div>
+
+      {/* Standalone Curriculum Management Modal */}
+      <AnimatePresence>
+        {curriculumCourse && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-gray-50 rounded-3xl max-w-5xl w-full shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[92vh]"
+            >
+              <div className="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary-600">Course Curriculum Editor</span>
+                  <h2 className="text-xl font-display font-bold text-gray-900">{curriculumCourse.title}</h2>
+                </div>
+                <button
+                  onClick={() => setCurriculumCourse(null)}
+                  className="p-2 text-gray-400 hover:text-gray-700 rounded-xl hover:bg-gray-100"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1">
+                <CurriculumManager courseId={curriculumCourse.id} courseTitle={curriculumCourse.title} />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isWizardOpen && (

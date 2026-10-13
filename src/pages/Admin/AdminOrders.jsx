@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, deleteDoc, doc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { formatPrice } from '../../utils/formatHelpers.js';
 import { exportOrdersToExcel } from '../../utils/excelExport.js';
@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import Input from '../../components/ui/Input';
+import toast from 'react-hot-toast';
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -29,28 +30,34 @@ export default function AdminOrders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null);
   const [newStatus, setNewStatus] = useState('');
+  const [trackingUrl, setTrackingUrl] = useState('');
+  const [courierName, setCourierName] = useState('');
+  const [internalNote, setInternalNote] = useState('');
+  const [customerNote, setCustomerNote] = useState('');
+  const [estimatedDelivery, setEstimatedDelivery] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [awbNumber, setAwbNumber] = useState('');
+  const [shippingPartner, setShippingPartner] = useState('');
+  const [shipmentUrl, setShipmentUrl] = useState('');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  const fetchOrders = async () => {
+  useEffect(() => {
     setLoading(true);
-    try {
-      const snapshot = await getDocs(collection(db, 'orders'));
+    const unsubscribe = onSnapshot(collection(db, 'orders'), (snapshot) => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       data.sort((a, b) => {
-        const dateA = a.date?.seconds || a.date || 0;
-        const dateB = b.date?.seconds || b.date || 0;
+        const dateA = a.date?.seconds || (a.date ? new Date(a.date).getTime() / 1000 : 0);
+        const dateB = b.date?.seconds || (b.date ? new Date(b.date).getTime() / 1000 : 0);
         return dateB - dateA;
       });
       setOrders(data);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    } finally {
       setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOrders();
+    }, (error) => {
+      console.error('Error listening to orders:', error);
+      setLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -65,15 +72,61 @@ export default function AdminOrders() {
   const handleStatusUpdate = async () => {
     if (!editingOrder || !newStatus) return;
     try {
-      await updateDoc(doc(db, 'orders', editingOrder.id), {
+      const updateData = {
         status: newStatus,
         updatedAt: serverTimestamp(),
-      });
-      setOrders(prev => prev.map(o => o.id === editingOrder.id ? { ...o, status: newStatus } : o));
+      };
+      
+      if (internalNote) updateData.internalNote = internalNote;
+      if (customerNote) updateData.additionalMessage = customerNote;
+      if (estimatedDelivery) updateData.estimatedDelivery = estimatedDelivery;
+      
+      if (courierName) {
+        updateData.courierName = courierName;
+        updateData.shiprocketCourierName = courierName;
+      }
+      if (trackingNumber) {
+        updateData.trackingNumber = trackingNumber;
+        updateData.shiprocketTrackingNumber = trackingNumber;
+      }
+      if (awbNumber) {
+        updateData.awbCode = awbNumber;
+        updateData.shiprocketAwbCode = awbNumber;
+      }
+      if (shippingPartner) {
+        updateData.shippingPartner = shippingPartner;
+      }
+      if (shipmentUrl) {
+        updateData.shipmentUrl = shipmentUrl;
+        updateData.shiprocketTrackingUrl = shipmentUrl;
+      }
+
+      // Add statusHistory entry
+      const historyItem = {
+        status: newStatus,
+        timestamp: new Date().toISOString(),
+        updatedBy: 'Admin',
+        note: customerNote || `Status updated to ${newStatus}.`
+      };
+      
+      updateData.statusHistory = arrayUnion(historyItem);
+
+      await updateDoc(doc(db, 'orders', editingOrder.id), updateData);
+      toast.success('Order status updated successfully');
       setEditingOrder(null);
       setNewStatus('');
+      setTrackingUrl('');
+      setCourierName('');
+      setInternalNote('');
+      setCustomerNote('');
+      setEstimatedDelivery('');
+      setTrackingNumber('');
+      setAwbNumber('');
+      setShippingPartner('');
+      setShipmentUrl('');
     } catch (error) {
       console.error('Error updating status:', error);
+      toast.error('Failed to update order status');
     }
   };
 
@@ -215,24 +268,35 @@ export default function AdminOrders() {
                       {getStatusBadge(order.status)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setSelectedOrder(order)}
-                          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors tooltip-trigger"
+                          className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors tooltip-trigger"
                           title="View Details"
                         >
                           <EyeIcon className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={() => { setEditingOrder(order); setNewStatus(order.status || 'Pending'); }}
-                          className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors tooltip-trigger"
+                          onClick={() => { 
+                            setEditingOrder(order); 
+                            setNewStatus(order.status || 'Pending'); 
+                            setCourierName(order.courierName || order.shiprocketCourierName || '');
+                            setTrackingNumber(order.trackingNumber || order.shiprocketTrackingNumber || '');
+                            setAwbNumber(order.awbCode || order.shiprocketAwbCode || '');
+                            setEstimatedDelivery(order.estimatedDelivery || '');
+                            setShippingPartner(order.shippingPartner || '');
+                            setShipmentUrl(order.shipmentUrl || order.shiprocketTrackingUrl || '');
+                            setInternalNote(order.internalNote || '');
+                            setCustomerNote(order.additionalMessage || '');
+                          }}
+                          className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors tooltip-trigger"
                           title="Update Status"
                         >
                           <PencilSquareIcon className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(order.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors tooltip-trigger"
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors tooltip-trigger"
                           title="Delete Order"
                         >
                           <TrashIcon className="w-5 h-5" />
@@ -406,32 +470,148 @@ export default function AdminOrders() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm"
+              className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg"
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className="text-2xl font-display font-bold text-gray-900 mb-2">Update Status</h2>
               <p className="text-sm text-gray-500 mb-6 font-mono font-bold">{editingOrder.orderId || editingOrder.id}</p>
               
-              <div className="space-y-6">
-                <div className="relative">
-                   <select
-                     value={newStatus}
-                     onChange={(e) => setNewStatus(e.target.value)}
-                     className="w-full pl-4 pr-10 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 focus:ring-2 focus:ring-primary-500 focus:bg-white outline-none appearance-none font-bold shadow-sm transition-all cursor-pointer"
-                   >
-                     {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                   </select>
-                   <ArrowDownTrayIcon className="w-5 h-5 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Order Status</label>
+                  <div className="relative">
+                     <select
+                       value={newStatus}
+                       onChange={(e) => setNewStatus(e.target.value)}
+                       className="w-full pl-4 pr-10 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 focus:ring-2 focus:ring-primary-500 focus:bg-white outline-none appearance-none font-bold shadow-sm transition-all cursor-pointer"
+                     >
+                       {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                     </select>
+                     <ArrowDownTrayIcon className="w-5 h-5 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
-                
-                <div className="flex gap-3">
-                  <Button variant="secondary" onClick={() => setEditingOrder(null)} className="flex-1 justify-center">
-                    Cancel
-                  </Button>
-                  <Button onClick={handleStatusUpdate} className="flex-1 justify-center">
-                    Save
-                  </Button>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Courier Name</label>
+                    <Input
+                      placeholder="e.g. Delhivery"
+                      value={courierName}
+                      onChange={(e) => setCourierName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tracking Number</label>
+                    <Input
+                      placeholder="e.g. 12345678"
+                      value={trackingNumber}
+                      onChange={(e) => setTrackingNumber(e.target.value)}
+                    />
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">AWB Code</label>
+                    <Input
+                      placeholder="e.g. AWB123"
+                      value={awbNumber}
+                      onChange={(e) => setAwbNumber(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Shipping Partner</label>
+                    <Input
+                      placeholder="e.g. Shiprocket"
+                      value={shippingPartner}
+                      onChange={(e) => setShippingPartner(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Shipment URL</label>
+                  <Input
+                    placeholder="e.g. https://shiprocket.co/tracking/..."
+                    value={shipmentUrl}
+                    onChange={(e) => setShipmentUrl(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Estimated Delivery Date</label>
+                  <Input
+                    placeholder="e.g. Oct 25, 2026"
+                    value={estimatedDelivery}
+                    onChange={(e) => setEstimatedDelivery(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Customer Note (Visible to User)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Message to customer..."
+                    value={customerNote}
+                    onChange={(e) => setCustomerNote(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 focus:ring-2 focus:ring-primary-500 focus:bg-white outline-none shadow-sm transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Internal Note (Admin Only)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Internal reference..."
+                    value={internalNote}
+                    onChange={(e) => setInternalNote(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 focus:ring-2 focus:ring-primary-500 focus:bg-white outline-none shadow-sm transition-all"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 pt-6 border-t border-gray-100 mt-6">
+                <Button variant="secondary" onClick={() => setEditingOrder(null)} className="flex-1 justify-center">
+                  Cancel
+                </Button>
+                <Button onClick={() => setShowConfirmDialog(true)} className="flex-1 justify-center bg-primary-600 text-white">
+                  Save
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Save Confirmation Dialog */}
+      <AnimatePresence>
+        {showConfirmDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm text-center"
+            >
+              <h3 className="text-xl font-display font-bold text-gray-900 mb-2">Confirm Update</h3>
+              <p className="text-gray-500 mb-6">
+                Are you sure you want to change order status to <span className="font-bold text-primary-600">{newStatus}</span>?
+              </p>
+              <div className="flex gap-3">
+                <Button variant="secondary" onClick={() => setShowConfirmDialog(false)} className="flex-1 justify-center">
+                  Cancel
+                </Button>
+                <Button onClick={() => {
+                  setShowConfirmDialog(false);
+                  handleStatusUpdate();
+                }} className="flex-1 justify-center bg-primary-600 text-white">
+                  Confirm
+                </Button>
               </div>
             </motion.div>
           </motion.div>

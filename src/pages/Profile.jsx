@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext.jsx';
 import { formatPrice } from '../utils/formatHelpers.js';
@@ -14,39 +14,41 @@ import {
   CheckCircleIcon,
   ClockIcon,
   ChevronRightIcon,
-  XCircleIcon
+  XCircleIcon,
+  AcademicCapIcon
 } from '@heroicons/react/24/outline';
+import MyCourses from '../components/MyCourses';
 
 export default function Profile() {
   const { currentUser, user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const from = searchParams.get("from");
+  const defaultTab = searchParams.get("tab") || "orders";
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const email = currentUser?.email || user?.email;
+  const uid = currentUser?.uid || user?.uid;
 
   useEffect(() => {
-    if (!email) return;
-    const fetchOrders = async () => {
-      try {
-        const q = query(collection(db, 'orders'), where('customerInfo.email', '==', email.toLowerCase()));
-        const snapshot = await getDocs(q);
-        let data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        data.sort((a, b) => {
-          const dateA = a.date?.seconds || 0;
-          const dateB = b.date?.seconds || 0;
-          return dateB - dateA;
-        });
-        setOrders(data);
-      } catch (error) {
-        console.error('Error fetching orders:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchOrders();
-  }, [email]);
+    if (!uid) return;
+    const q = query(collection(db, 'orders'), where('customerInfo.userId', '==', uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => {
+        const dateA = a.date?.seconds || 0;
+        const dateB = b.date?.seconds || 0;
+        return dateB - dateA;
+      });
+      setOrders(data);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error listening to orders:', error);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [uid]);
 
   if (!email) {
     return (
@@ -88,11 +90,30 @@ export default function Profile() {
     <div className="min-h-screen bg-gray-50 pt-24 pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-display font-bold text-gray-900">My Dashboard</h1>
-            <p className="text-gray-500 mt-2">Manage your profile and track your orders.</p>
+            <p className="text-gray-500 mt-2">Manage your profile, track your orders, and access your courses.</p>
           </div>
+        </div>
+
+        <div className="flex gap-4 mb-8 border-b border-gray-200 overflow-x-auto hide-scrollbar">
+          <button
+            onClick={() => { setActiveTab('orders'); setSearchParams({ tab: 'orders' }); }}
+            className={`flex items-center gap-2 pb-4 px-2 font-bold transition-colors whitespace-nowrap border-b-2 ${
+              activeTab === 'orders' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <ShoppingBagIcon className="w-5 h-5" /> Orders
+          </button>
+          <button
+            onClick={() => { setActiveTab('courses'); setSearchParams({ tab: 'courses' }); }}
+            className={`flex items-center gap-2 pb-4 px-2 font-bold transition-colors whitespace-nowrap border-b-2 ${
+              activeTab === 'courses' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <AcademicCapIcon className="w-5 h-5" /> My Courses
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -119,9 +140,12 @@ export default function Profile() {
             </div>
           </motion.div>
 
-          {/* Order History */}
+          {/* Main Content Area */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-3">
             
+            {activeTab === 'courses' ? (
+              <MyCourses currentUser={currentUser} />
+            ) : (
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                <div className="px-6 py-5 border-b border-gray-100 bg-gray-50/50">
                  <h2 className="text-xl font-bold text-gray-900">Order History</h2>
@@ -184,74 +208,41 @@ export default function Profile() {
                             </div>
 
                             <div className="p-6">
-                              {/* Shiprocket Tracking Section */}
-                              {(order.shiprocketStatus || order.shiprocketTrackingUrl) && (
-                                <div className="bg-indigo-50/50 rounded-2xl p-4 mb-6 border border-indigo-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
-                                      <TruckIcon className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                      <p className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-0.5">Shipping Status</p>
-                                      <p className="text-sm font-medium text-indigo-700">{order.shiprocketStatus || 'Processing'}</p>
-                                    </div>
-                                  </div>
-                                  
-                                  {order.shiprocketTrackingUrl && (
-                                    <a 
-                                      href={order.shiprocketTrackingUrl} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-xl shadow-sm hover:shadow transition-all"
-                                    >
-                                      Track Package <ChevronRightIcon className="w-4 h-4" />
-                                    </a>
+                              <div className="flex flex-col md:flex-row gap-6 items-center">
+                                {/* First Item Thumbnail */}
+                                <div className="w-24 h-24 bg-gray-50 rounded-2xl overflow-hidden flex-shrink-0 border border-gray-100 flex items-center justify-center">
+                                  {order.items && order.items[0]?.imageUrl ? (
+                                    <img src={order.items[0].imageUrl} alt="Product" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <ShoppingBagIcon className="w-8 h-8 text-gray-300" />
                                   )}
                                 </div>
-                              )}
+                                
+                                {/* Order Info */}
+                                <div className="flex-1 text-center md:text-left">
+                                  <h4 className="text-lg font-bold text-gray-900 mb-1">
+                                    {order.items && order.items[0]?.name}
+                                    {order.items && order.items.length > 1 && (
+                                      <span className="text-gray-500 font-medium text-sm ml-2">
+                                        + {order.items.length - 1} more {order.items.length - 1 === 1 ? 'item' : 'items'}
+                                      </span>
+                                    )}
+                                  </h4>
+                                  <div className="text-sm text-gray-500 space-y-1 mb-4 md:mb-0">
+                                    <p>Payment Status: <span className="font-semibold text-green-600">Paid</span></p>
+                                    <p>Expected Delivery: <span className="font-semibold text-gray-900">Arriving soon</span></p>
+                                  </div>
+                                </div>
 
-                              {/* Order Items */}
-                              <div className="space-y-4">
-                                {order.items && order.items.map((item, i) => {
-                                  const qty = item.quantity || 1;
-                                  const price = item.price || 0;
-                                  const cPrice = item.customPrice || 0;
-                                  const unitPrice = price + cPrice;
-                                  const cd = item.customData || {};
-                                  return (
-                                    <div key={i} className="flex gap-4 p-4 rounded-2xl bg-white border border-gray-100 group-hover:border-gray-200 transition-colors">
-                                      <div className="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center relative">
-                                        {item.imageUrl ? (
-                                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                          <span className="text-gray-300">📦</span>
-                                        )}
-                                      </div>
-                                      <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                        <div className="flex justify-between items-start gap-4 mb-1">
-                                          <h4 className="font-bold text-gray-900 text-sm line-clamp-1">{item.name || item.productName}</h4>
-                                          <p className="font-bold text-gray-900 text-sm whitespace-nowrap">{formatPrice(unitPrice * qty)}</p>
-                                        </div>
-                                        <p className="text-xs text-gray-500 mb-2">
-                                          Qty: {qty} × {formatPrice(unitPrice)}
-                                        </p>
-                                        
-                                        {Object.keys(cd).length > 0 && (
-                                          <div className="flex flex-wrap gap-2">
-                                            {cd.name && <span className="text-[10px] font-bold bg-primary-50 text-primary-700 px-2 py-0.5 rounded-md">Name: {cd.name}</span>}
-                                            {cd.licenseNumber && <span className="text-[10px] font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md font-mono">License: {cd.licenseNumber}</span>}
-                                            {cd.color && <span className="text-[10px] font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md capitalize">Color: {cd.color}</span>}
-                                            {cd.photoLink && (
-                                              <a href={cd.photoLink} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded-md transition-colors">
-                                                View Photo
-                                              </a>
-                                            )}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                                {/* Action */}
+                                <div className="flex-shrink-0 w-full md:w-auto text-center md:text-right">
+                                  <Link 
+                                    to={`/profile/orders/${order.id}`} 
+                                    className="btn-primary w-full md:w-auto py-3 px-6 shadow-md shadow-primary-500/20 group-hover:shadow-lg group-hover:-translate-y-0.5 transition-all inline-flex items-center justify-center gap-2"
+                                  >
+                                    View Order Details <ChevronRightIcon className="w-4 h-4" />
+                                  </Link>
+                                </div>
                               </div>
                             </div>
 
@@ -263,6 +254,7 @@ export default function Profile() {
                 )}
               </div>
             </div>
+            )}
           </motion.div>
         </div>
       </div>

@@ -18,7 +18,9 @@ import {
 } from '@heroicons/react/24/outline';
 
 import { Toaster, toast } from 'react-hot-toast';
-const ALLOWED_ADMIN_EMAILS = ['kraut9011@gmail.com'];
+import ErrorBoundary from '../../components/ErrorBoundary';
+
+const ALLOWED_ADMIN_EMAILS = ['kraut9011@gmail.com', 'premzumble@gmail.com'];
 const navItems = [
   { name: 'Dashboard', path: '/admin/dashboard', icon: ChartPieIcon },
   { name: 'Orders', path: '/admin/orders', icon: ShoppingCartIcon },
@@ -38,23 +40,19 @@ export default function AdminLayout() {
 
   useEffect(() => {
     if (loading) return;
-    const hardcodedAdmin = sessionStorage.getItem('hardcodedAdmin');
     
-    if (!currentUser && !hardcodedAdmin) {
+    if (!currentUser) {
       navigate('/admin/login', { replace: true });
       return;
     }
 
-    if (currentUser) {
-      if (!ALLOWED_ADMIN_EMAILS.includes(currentUser.email)) {
-        toast.error('Unauthorized access. Admin privileges required.');
-        navigate('/', { replace: true });
-      }
+    if (!ALLOWED_ADMIN_EMAILS.includes(currentUser.email)) {
+      toast.error('Unauthorized access. Admin privileges required.');
+      navigate('/', { replace: true });
     }
   }, [currentUser, loading, navigate]);
 
   const handleLogout = async () => {
-    sessionStorage.removeItem('hardcodedAdmin');
     await logout();
     navigate('/admin/login');
   };
@@ -172,7 +170,9 @@ export default function AdminLayout() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-8 bg-gray-50/50">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
       <Toaster position="top-right" />

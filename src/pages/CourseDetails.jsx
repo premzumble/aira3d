@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { formatPrice, formatDate } from '../utils/formatHelpers.js';
@@ -15,9 +15,11 @@ import {
   UserGroupIcon as UsersIcon,
   ChevronDownIcon,
   PlayCircleIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  ShareIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
+import { getCourseModules, getCourseLessons } from '../services/curriculumService';
 
 // Dummy component to avoid missing import errors
 const DocumentTextIcon = ({ className }) => (
@@ -34,6 +36,9 @@ const CourseDetails = () => {
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeModule, setActiveModule] = useState(0);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [curriculumModules, setCurriculumModules] = useState([]);
+  const [curriculumLessons, setCurriculumLessons] = useState([]);
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -42,8 +47,31 @@ const CourseDetails = () => {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setCourse({ id: docSnap.id, ...docSnap.data() });
+
+          // Fetch curriculum
+          try {
+            const [mods, les] = await Promise.all([
+              getCourseModules(id),
+              getCourseLessons(id)
+            ]);
+            setCurriculumModules(mods);
+            setCurriculumLessons(les.filter(l => l.isPublished));
+          } catch (curErr) {
+            console.warn("Could not load curriculum subcollections:", curErr);
+          }
         } else {
           setCourse(null);
+        }
+
+        if (currentUser) {
+          const q = query(
+            collection(db, 'enrollments'),
+            where('userId', '==', currentUser.uid),
+            where('courseId', '==', id),
+            where('enrollmentStatus', '==', 'Confirmed')
+          );
+          const enrolledDocs = await getDocs(q);
+          setIsEnrolled(!enrolledDocs.empty);
         }
       } catch (error) {
         console.error("Error fetching course:", error);
@@ -53,7 +81,7 @@ const CourseDetails = () => {
       }
     };
     fetchCourse();
-  }, [id]);
+  }, [id, currentUser]);
 
   const handleEnrollClick = () => {
     if (!currentUser) {
@@ -62,6 +90,19 @@ const CourseDetails = () => {
       return;
     }
     navigate(`/courses/${id}/enroll`);
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: course?.title || 'Aira3D Course',
+        text: 'Check out this awesome course on Aira3D!',
+        url: window.location.href,
+      }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('Link copied to clipboard!');
+    }
   };
 
   if (loading) {
@@ -243,8 +284,86 @@ const CourseDetails = () => {
               </div>
             </div>
 
-            {/* Syllabus / Modules (Coursera Style) */}
-            {modules && modules.length > 0 && (
+            {/* Dynamic Curriculum / Syllabus (Coursera & Udemy Style) */}
+            {curriculumModules && curriculumModules.length > 0 ? (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-display font-bold text-gray-900">Course Curriculum</h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {curriculumModules.length} modules • {curriculumLessons.length} lectures total
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {curriculumModules.map((mod, idx) => {
+                    const modLessons = curriculumLessons.filter(l => l.moduleId === mod.id);
+                    return (
+                      <div key={mod.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden transition-all duration-300 hover:border-gray-300 shadow-sm">
+                        <button
+                          onClick={() => setActiveModule(activeModule === idx ? null : idx)}
+                          className="w-full px-6 py-5 flex items-center justify-between bg-white text-left focus:outline-none focus:bg-gray-50"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center font-bold font-display text-sm">
+                              {idx + 1}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-gray-900 text-base">{mod.title}</h3>
+                              <span className="text-xs text-gray-400 font-medium">
+                                {modLessons.length} lectures
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${activeModule === idx ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        <AnimatePresence>
+                          {activeModule === idx && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="px-6 pb-4 pt-1 border-t border-gray-100 bg-gray-50/50 divide-y divide-gray-100">
+                                {modLessons.length === 0 ? (
+                                  <p className="py-3 text-xs text-gray-400">Lectures will be published soon.</p>
+                                ) : (
+                                  modLessons.map((les, lIdx) => (
+                                    <div key={les.id} className="py-3.5 flex items-center justify-between gap-4">
+                                      <div className="flex items-center gap-3">
+                                        <PlayCircleIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                        <div>
+                                          <p className="text-sm font-medium text-gray-800">{les.title}</p>
+                                          {les.duration && (
+                                            <span className="text-xs text-gray-400 font-mono">{les.duration}</span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {les.isFreePreview && (
+                                        <Link
+                                          to={`/learn/${course.id}`}
+                                          className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition-colors"
+                                        >
+                                          Free Preview
+                                        </Link>
+                                      )}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : modules && modules.length > 0 && (
               <div>
                 <h2 className="text-2xl font-display font-bold text-gray-900 mb-6">Syllabus</h2>
                 <div className="space-y-4">
@@ -351,13 +470,36 @@ const CourseDetails = () => {
                     )}
                   </div>
 
-                  <button 
-                    onClick={handleEnrollClick}
-                    className="w-full bg-primary-600 hover:bg-primary-700 text-white text-lg font-bold py-4 rounded-xl shadow-lg shadow-primary-500/30 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary-500/40 mb-4"
-                  >
-                    Enroll Now
-                  </button>
+                  {isEnrolled ? (
+                    <button 
+                      onClick={() => navigate(`/learn/${course.id}`)}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white text-lg font-bold py-4 rounded-xl shadow-lg shadow-green-600/30 transition-all hover:-translate-y-1 mb-4 flex items-center justify-center gap-2"
+                    >
+                      <CheckCircleIcon className="w-6 h-6" /> Start Learning Now
+                    </button>
+                  ) : seatsLeft === 0 ? (
+                    <button 
+                      disabled
+                      className="w-full bg-gray-400 text-white text-lg font-bold py-4 rounded-xl cursor-not-allowed mb-4 flex items-center justify-center gap-2"
+                    >
+                      Course Full
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={handleEnrollClick}
+                      className="w-full bg-primary-600 hover:bg-primary-700 text-white text-lg font-bold py-4 rounded-xl shadow-lg shadow-primary-500/30 transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary-500/40 mb-4"
+                    >
+                      Enroll Now
+                    </button>
+                  )}
                   <p className="text-center text-xs text-gray-500 mb-6">30-Day Money-Back Guarantee</p>
+                  
+                  <button 
+                    onClick={handleShare}
+                    className="w-full flex items-center justify-center gap-2 py-3 border-2 border-gray-200 hover:border-primary-500 text-gray-700 hover:text-primary-600 font-bold rounded-xl transition-colors mb-6"
+                  >
+                    <ShareIcon className="w-5 h-5" /> Share this course
+                  </button>
 
                   <div className="space-y-4">
                     <h4 className="font-bold text-gray-900">This course includes:</h4>
