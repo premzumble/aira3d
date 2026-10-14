@@ -17,6 +17,7 @@ import {
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 import { useAuth } from '../context/AuthContext';
 import { getCourseById } from '../services/courseService';
+import { getCourseEffectivePrice } from '../utils/formatHelpers';
 import { 
   getCourseModules, 
   getCourseLessons, 
@@ -266,7 +267,7 @@ export default function CourseLearning() {
           <div className="space-y-3">
             <Link to={`/courses/${courseId}/enroll`} className="block">
               <button className="w-full py-3.5 bg-gradient-to-r from-[#a435f0] to-[#0056d2] hover:from-[#8710d8] hover:to-[#00419e] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#a435f0]/25 transition-all hover:scale-[1.02]">
-                Enroll Now • {course?.price ? `₹${course.price}` : 'Get Full Access'}
+                Enroll Now • {course ? `₹${getCourseEffectivePrice(course).effectivePrice}` : 'Get Full Access'}
               </button>
             </Link>
             <Link to={`/courses/${courseId}`} className="block">

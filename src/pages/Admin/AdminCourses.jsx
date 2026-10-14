@@ -244,7 +244,14 @@ const AdminCourses = () => {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatPrice ? formatPrice(course.price || 0) : `$${course.price || 0}`}
+                        {course.discountPrice ? (
+                          <div>
+                            <span className="font-bold text-green-700">{formatPrice(course.discountPrice)}</span>
+                            <span className="text-xs text-gray-400 line-through ml-1.5">{formatPrice(course.price)}</span>
+                          </div>
+                        ) : (
+                          formatPrice ? formatPrice(course.price || 0) : `₹${course.price || 0}`
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { formatPrice } from '../utils/formatHelpers.js';
+import { formatPrice, getCourseEffectivePrice } from '../utils/formatHelpers.js';
 import toast from 'react-hot-toast';
 import EnrollmentSuccessModal from '../components/EnrollmentSuccessModal.jsx';
 import { CheckIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
@@ -186,11 +186,15 @@ const CourseEnrollment = () => {
         throw new Error("Razorpay SDK failed to load. Are you online?");
       }
 
+      const { effectivePrice, originalPrice, hasDiscount, discountAmount } = getCourseEffectivePrice(course);
+
       const enrollData = {
         userId: currentUser.uid,
         courseId: id,
         courseTitle: course.title,
-        amount: course.price,
+        amount: effectivePrice,
+        originalPrice: originalPrice,
+        discountApplied: hasDiscount ? discountAmount : 0,
         enrollmentStatus: 'Pending',
         paymentStatus: 'Pending',
         createdAt: serverTimestamp(),
@@ -200,7 +204,7 @@ const CourseEnrollment = () => {
       const enrollRef = await addDoc(collection(db, 'enrollments'), enrollData);
       const enrollmentId = enrollRef.id;
 
-      const orderData = await apiService.createRazorpayOrder({ amount: course.price, receipt: enrollmentId });
+      const orderData = await apiService.createRazorpayOrder({ amount: effectivePrice, receipt: enrollmentId });
 
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
@@ -277,6 +281,8 @@ const CourseEnrollment = () => {
       </div>
     );
   }
+
+  const { effectivePrice, originalPrice, hasDiscount, discountAmount, discountPercent } = getCourseEffectivePrice(course);
 
   const steps = [
     { num: 1, title: 'Personal Info' },
@@ -460,22 +466,40 @@ const CourseEnrollment = () => {
                       <div>
                         <h3 className="font-display font-bold text-lg text-gray-900">{course.title}</h3>
                         <p className="text-sm text-gray-500 mb-2">{course.category}</p>
-                        <p className="text-primary-600 font-bold text-xl">{formatPrice(course.price)}</p>
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <p className="text-primary-600 font-bold text-2xl">{formatPrice(effectivePrice)}</p>
+                          {hasDiscount && (
+                            <>
+                              <span className="text-sm text-gray-400 line-through font-medium">
+                                {formatPrice(originalPrice)}
+                              </span>
+                              <span className="text-xs font-bold text-green-700 bg-green-100 px-2.5 py-0.5 rounded-full">
+                                {discountPercent}% OFF
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                     
                     <div className="space-y-3 text-sm">
                       <div className="flex justify-between text-gray-600">
-                        <span>Course Fee</span>
-                        <span>{formatPrice(course.price)}</span>
+                        <span>Course Fee (Regular)</span>
+                        <span className={hasDiscount ? "line-through text-gray-400" : ""}>{formatPrice(originalPrice)}</span>
                       </div>
+                      {hasDiscount && (
+                        <div className="flex justify-between text-green-600 font-medium">
+                          <span>Special Discount</span>
+                          <span>- {formatPrice(discountAmount)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-gray-600">
                         <span>Taxes & Fees</span>
-                        <span className="text-green-600">Included</span>
+                        <span className="text-green-600 font-medium">Included</span>
                       </div>
                       <div className="pt-3 border-t border-gray-200 flex justify-between font-bold text-lg text-gray-900">
                         <span>Total to Pay</span>
-                        <span>{formatPrice(course.price)}</span>
+                        <span className="text-primary-600 text-2xl font-extrabold">{formatPrice(effectivePrice)}</span>
                       </div>
                     </div>
                   </div>
@@ -509,9 +533,9 @@ const CourseEnrollment = () => {
               <button 
                 onClick={handlePayment} 
                 disabled={isProcessing}
-                className="px-8 py-3 bg-primary-600 text-white rounded-xl font-bold hover:bg-primary-700 transition-colors flex items-center gap-2 shadow-lg shadow-primary-500/30 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="px-8 py-3 bg-primary-600 text-white rounded-xl font-bold hover:bg-primary-700 transition-colors flex items-center gap-2 shadow-lg shadow-primary-500/30 disabled:opacity-70 disabled:cursor-not-allowed text-base"
               >
-                {isProcessing ? 'Processing...' : `Pay ${formatPrice(course.price)}`}
+                {isProcessing ? 'Processing...' : `Pay ${formatPrice(effectivePrice)}`}
               </button>
             )}
           </div>
